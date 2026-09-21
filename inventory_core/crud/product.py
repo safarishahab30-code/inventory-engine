@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 from inventory_core.models.product import Product
 from inventory_core.schemas.product import ProductCreate, ProductUpdate
+from sqlalchemy import or_
+
 def get_product(db: Session, product_id: int):
     return db.query(Product).filter(Product.id == product_id).first()
 
@@ -56,4 +58,35 @@ def delete_product(db: Session, product_id: int):
     db.delete(product)
     db.commit()
     return True
+def advanced_search_products(
+    db: Session,
+    query: str = None,
+    category: str = None,
+    min_price: float = None,
+    max_price: float = None,
+    in_stock_only: bool = False
+):
+    stmt = db.query(Product)
 
+    # جستجوی متنی روی نام، دسته‌بندی یا شناسه
+    if query:
+        search_pattern = f"%{query}%"
+        stmt = stmt.filter(
+            or_(
+                Product.name.ilike(search_pattern),
+                Product.category.ilike(search_pattern),
+                str(Product.id) == query
+            )
+        )
+
+    # فیلترهای تکمیلی
+    if category:
+        stmt = stmt.filter(Product.category.ilike(f"%{category}%"))
+    if min_price is not None:
+        stmt = stmt.filter(Product.price >= min_price)
+    if max_price is not None:
+        stmt = stmt.filter(Product.price <= max_price)
+    if in_stock_only:
+        stmt = stmt.filter(Product.quantity > 0)
+
+    return stmt.all()
