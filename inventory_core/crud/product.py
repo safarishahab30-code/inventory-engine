@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Session
 from inventory_core.models.product import Product
 from inventory_core.schemas.product import ProductCreate, ProductUpdate
-
 def get_product(db: Session, product_id: int):
     return db.query(Product).filter(Product.id == product_id).first()
 
@@ -32,3 +31,29 @@ def delete_product(db: Session, product_id: int):
         db.commit()
         return True
     return False
+def get_all_products(db: Session):
+    return db.query(Product).all()
+def update_product(db: Session, product_id: int, name: str = None, price: float = None, category: str = None):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        return None
+    
+    if name is not None:
+        product.name = name
+    if price is not None:
+        product.price = price
+    if category is not None:
+        product.category = category
+
+    db.commit()
+    db.refresh(product)
+    return product
+def delete_product(db: Session, product_id: int):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        return False
+    
+    db.delete(product)
+    db.commit()
+    return True
+
