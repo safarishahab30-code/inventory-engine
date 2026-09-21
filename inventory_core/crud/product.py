@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from inventory_core.models.product import Product
 from inventory_core.schemas.product import ProductCreate, ProductUpdate
 from sqlalchemy import or_
-
+from sqlalchemy import func
 def get_product(db: Session, product_id: int):
     return db.query(Product).filter(Product.id == product_id).first()
 
@@ -135,4 +135,21 @@ def adjust_product_stock(db: Session, product_id: int, amount: int) -> Product:
 def get_low_stock_products(session: Session, threshold: int = 5) -> list[Product]:
     """دریافت لیست کالاهایی که موجودی آن‌ها کمتر یا مساوی آستانه مشخص است"""
     return session.query(Product).filter(Product.quantity <= threshold).all()
+def get_inventory_summary(db:Session, low_stock_threshold: int = 5):
+    stats = db.query(
+        func.count(Product.id).label("total_products"),
+        func.coalesce(func.sum(Product.quantity), 0).label("total_stock"),
+        func.coalesce(func.sum(Product.quantity * Product.price), 0).label("total_value")
+    ).first()
 
+    low_stock_products = db.query(Product).filter(
+        Product.quantity <= low_stock_threshold
+    ).all()
+
+    return {
+        "total_products": stats.total_products or 0,
+        "total_stock": stats.total_stock or 0,
+        "total_value": stats.total_value or 0,
+        "low_stock_count": len(low_stock_products),
+        "low_stock_products": low_stock_products
+    }

@@ -14,6 +14,11 @@ from typing import Optional, List
 from rich.table import Table
 from rich import box
 from typing import Optional
+from pathlib import Path
+from inventory_core.crud.product import get_inventory_summary
+from inventory_core.services.exporter import export_to_csv, export_to_excel
+from inventory_core.database import SessionLocal
+
 console = Console()
 
 
@@ -272,6 +277,78 @@ def low_stock_command(
         typer.echo(farsi(f"خطا در دریافت گزارش: {e}"), err=True)
     finally:
         session.close()
+@app.command(name="report", help="گزارش آماری انبار با امکان خروجی فایل اکسل یا CSV")
+def inventory_report(
+    export: str = typer.Option(
+        None, 
+        "--export", "-e", 
+        help="فرمت خروجی گزارش: csv یا excel"
+    ),
+    threshold: int = typer.Option(
+        5, 
+        "--threshold", "-t", 
+        help="آستانه هشدار کسری موجودی"
+    )
+):
+    db = SessionLocal()
+    try:
+        summary = get_inventory_summary(db, low_stock_threshold=threshold)
+        
+        # ۱. نمایش وضعیت کلی در کنسول
+        summary_table = Table(title="📊 خلاصه وضعیت انبار")
+        summary_table.add_column("شاخص", style="cyan")
+        summary_table.add_column("مقدار", style="green")
+
+        summary_table.add_row("تعداد انواع کالاها", str(summary["total_products"]))
+        summary_table.add_row("مجموع موجودی فیزیکی", str(summary["total_stock"]))
+        summary_table.add_row("ارزش ریالی کل انبار", f"{summary['total_value']:,} تومان")
+        summary_table.add_row("تعداد کالاهای رو به اتمام", str(summary["low_stock_count"]))
+        
+        console.print(summary_table)
+
+        # ۲. نمایش اقلام کم‌موجود در صورت وجود
+        if summary["low_stock_products"]:  # تغییر از low_stock_items به low_stock_products
+            console.print("\n[bold red]⚠️ کالاهای با موجودی بحرانی:[/bold red]")
+            low_table = Table()
+            low_table.add_column("شناسه", style="dim")
+            low_table.add_column("نام کالا")
+            low_table.add_column("موجودی", style="red")
+            
+            for item in summary["low_stock_products"]:
+                low_table.add_row(str(item.id), item.name, str(item.quantity))
+            console.print(low_table)
+
+        # ۳. پردازش خروجی فایل (در صورت مشخص شدن فلگ --export)
+        if export:
+            export_format = export.lower().strip()
+            # آماده‌سازی داده‌ها برای اکسپورت
+            products = get_all_products(db)
+            export_data = [
+                {
+                    "شناسه": p.id,
+                    "نام کالا": p.name,
+                    "بارکد": p.barcode or "-",
+                    "قیمت (تومان)": p.price,
+                    "موجودی": p.stock,
+                    "وضعیت": "فعال" if p.is_active else "غیرفعال"
+                }
+                for p in products
+            ]
+
+            output_dir = Path("exports")
+            if export_format == "csv":
+                file_path = output_dir / "inventory_report.csv"
+                export_to_csv(export_data, file_path)
+                console.print(f"\n[green]✔ گزارش CSV با موفقیت ذخیره شد:[/green] {file_path}")
+            elif export_format in ["excel", "xlsx"]:
+                file_path = output_dir / "inventory_report.xlsx"
+                export_to_excel(export_data, file_path)
+                console.print(f"\n[green]✔ گزارش اکسل با موفقیت ذخیره شد:[/green] {file_path}")
+            else:
+                console.print(f"\n[red]❌ فرمت نامعتبر است. فرمت‌های مجاز: csv یا excel[/red]")
+
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     app()
