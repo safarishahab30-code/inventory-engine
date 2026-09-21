@@ -13,6 +13,7 @@ from rich.console import Console
 from typing import Optional, List
 from rich.table import Table
 from rich import box
+from typing import Optional
 console = Console()
 
 
@@ -182,18 +183,56 @@ def display_product_table(console, product):
     table.add_row(farsi("موجودی"), str(product.quantity))
     
     console.print(table)
-@app.command()
+@app.command(name="search")
 def search(
-    interactive: bool = typer.Option(False, "--interactive", "-i", help="حالت تعاملی"),
     name: Optional[str] = typer.Option(None, "--name", "-n", help="نام کالا"),
-    category: Optional[str] = typer.Option(None, "--category", "-c", help="دسته‌بندی")
+    category: Optional[str] = typer.Option(None, "--category", "-c", help="دسته‌بندی"),
+    min_price: Optional[float] = typer.Option(None, "--min-price", help="حداقل قیمت"),
+    max_price: Optional[float] = typer.Option(None, "--max-price", help="حداکثر قیمت"),
+    in_stock: Optional[bool] = typer.Option(None, "--in-stock", help="فقط کالاهای موجود")
 ):
-    # تنظیمات دیتابیس و کنسول مطابق با کدهای قبلی
-    db = SessionLocal() # یا هر متغیری که session دیتابیس را برمی‌گرداند
-    console = Console()
-    
+    """جستجوی پیشرفته محصولات با فیلترهای دلخواه"""
+    session = SessionLocal()
+    try:
+        products = advanced_search_products(
+            session,
+            name=name,
+            category=category,
+            min_price=min_price,
+            max_price=max_price,
+            in_stock=in_stock
+        )
 
-    search_products_cli(db, console, interactive=interactive, name=name, category=category)
+        if not products:
+            console.print(f"[yellow]{farsi('هیچ محصولی با این مشخصات یافت نشد.')}[/yellow]")
+            return
+
+        table = Table(
+            title=farsi("🔍 نتایج جستجو"),
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold bright_blue",
+        )
+        table.add_column(farsi("شناسه"), justify="center", style="cyan")
+        table.add_column(farsi("نام کالا"), style="bold white")
+        table.add_column(farsi("دسته‌بندی"), style="yellow")
+        table.add_column(farsi("قیمت (تومان)"), justify="right", style="green")
+        table.add_column(farsi("موجودی"), justify="center")
+
+        for p in products:
+            qty_style = "bold green" if p.quantity >= 5 else ("bold yellow" if p.quantity > 0 else "bold red")
+            table.add_row(
+                str(p.id),
+                farsi(p.name),
+                farsi(p.category or "-"),
+                f"{p.price:,.0f}",
+                f"[{qty_style}]{p.quantity}[/{qty_style}]"
+            )
+
+        console.print(table)
+    finally:
+        session.close()
+
 @app.command()
 def adjust_stock(
     product_id: int = typer.Option(..., "--id", "-i", help="Product ID"),

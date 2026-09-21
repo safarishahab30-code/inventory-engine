@@ -68,7 +68,6 @@ def advanced_search_products(
 ):
     stmt = db.query(Product)
 
-<<<<<<< HEAD
     # جستجوی متنی روی نام، دسته‌بندی یا شناسه
     if query:
         search_pattern = f"%{query}%"
@@ -91,14 +90,35 @@ def advanced_search_products(
         stmt = stmt.filter(Product.quantity > 0)
 
     return stmt.all()
-=======
-def advanced_search_products(db: Session, query: str = None, category_id: int = None):
+def advanced_search_products(
+    db: Session,
+    name: str = None,
+    category: int = None,
+    category_id: int = None,
+    min_price: float = None,
+    max_price: float = None,
+    in_stock: bool = None
+):
     q = db.query(Product)
-    if query:
-        q = q.filter(Product.name.ilike(f"%{query}%"))
-    if category_id is not None:
-        q = q.filter(Product.category_id == category_id)
+    
+    # پشتیبانی از هر دو نام آرگومان
+    target_category = category_id if category_id is not None else category
+    
+    if name:
+        q = q.filter(Product.name.ilike(f"%{name}%"))
+    if target_category is not None:
+        q = q.filter(Product.category_id == target_category)
+    if min_price is not None:
+        q = q.filter(Product.price >= min_price)
+    if max_price is not None:
+        q = q.filter(Product.price <= max_price)
+    if in_stock is True:
+        q = q.filter(Product.quantity > 0)
+    elif in_stock is False:
+        q = q.filter(Product.quantity == 0)
+        
     return q.all()
+
 def adjust_product_stock(db: Session, product_id: int, amount: int) -> Product:
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
@@ -115,4 +135,4 @@ def adjust_product_stock(db: Session, product_id: int, amount: int) -> Product:
 def get_low_stock_products(session: Session, threshold: int = 5) -> list[Product]:
     """دریافت لیست کالاهایی که موجودی آن‌ها کمتر یا مساوی آستانه مشخص است"""
     return session.query(Product).filter(Product.quantity <= threshold).all()
->>>>>>> 271c72379f8887081321b225d83203250ebb9cf1
+
