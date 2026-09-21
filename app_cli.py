@@ -1,10 +1,11 @@
 import typer
+from sqlalchemy.orm import Session
 from inventory_core.database import SessionLocal
 from inventory_core.schemas.product import ProductCreate
 from inventory_core.utils import farsi
 from inventory_core.schemas.product import ProductCreate
 from inventory_core.schemas.product import ProductCreate
-from inventory_core.crud.product import get_all_products, create_product, update_product, delete_product,advanced_search_products,adjust_product_stock
+from inventory_core.crud.product import get_all_products, create_product, update_product, delete_product,advanced_search_products,adjust_product_stock,get_low_stock_products
 from InquirerPy import inquirer
 from inventory_core.models.product import Product
 from InquirerPy.base.control import Choice
@@ -210,6 +211,28 @@ def adjust_stock(
         console.print(f"[red]{farsi(str(e))}[/red]")
     finally:
         db.close()
+@app.command(name="low-stock")
+def low_stock_command(
+    threshold: int = typer.Option(5, help="آستانه هشدار کسری موجودی")
+):
+    """گزارش‌گیری و نمایش کالاهای کم‌موجودی انبار"""
+    session = SessionLocal()
+    try:
+        products = get_low_stock_products(session, threshold=threshold)
+        
+        if not products:
+            typer.echo(farsi(f"هیچ کالایی با موجودی کمتر یا مساوی {threshold} یافت نشد."))
+            return
+
+        typer.echo(farsi(f"\n⚠️ لیست کالاهای کم‌موجودی (آستانه: {threshold}):\n" + "-" * 50))
+        for p in products:
+            # تغییر از p.stock به p.quantity
+            typer.echo(farsi(f"ID: {p.id} | Name: {p.name} | Quantity: {p.quantity}"))
+    except Exception as e:
+        # اصلاح: پارامتر err=True فقط برای typer.echo است
+        typer.echo(farsi(f"خطا در دریافت گزارش: {e}"), err=True)
+    finally:
+        session.close()
 
 if __name__ == "__main__":
     app()

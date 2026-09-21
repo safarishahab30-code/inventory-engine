@@ -77,3 +77,6 @@ def adjust_product_stock(db: Session, product_id: int, amount: int) -> Product:
     db.commit()
     db.refresh(product)
     return product
+def get_low_stock_products(session: Session, threshold: int = 5) -> list[Product]:
+    """دریافت لیست کالاهایی که موجودی آن‌ها کمتر یا مساوی آستانه مشخص است"""
+    return session.query(Product).filter(Product.quantity <= threshold).all()
