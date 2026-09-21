@@ -1,13 +1,11 @@
 import typer
+from sqlalchemy.orm import Session
 from inventory_core.database import SessionLocal
 from inventory_core.schemas.product import ProductCreate
-from inventory_core.database import SessionLocal
 from inventory_core.utils import farsi
 from inventory_core.schemas.product import ProductCreate
-from inventory_core.database import SessionLocal
-from inventory_core.crud.product import create_product, get_products
 from inventory_core.schemas.product import ProductCreate
-from inventory_core.crud.product import get_all_products, create_product, update_product, delete_product,advanced_search_products
+from inventory_core.crud.product import get_all_products, create_product, update_product, delete_product,advanced_search_products,adjust_product_stock,get_low_stock_products
 from InquirerPy import inquirer
 from inventory_core.models.product import Product
 from InquirerPy.base.control import Choice
@@ -119,44 +117,46 @@ def delete(product_id: int):
         print(farsi(f"🗑️ محصول با شناسه {product_id} با موفقیت حذف شد."))
     finally:
         session.close()
-def search_products_cli(db, console, interactive: bool = False, name: Optional[str] = None, category: Optional[str] = None):
-    """
-    تابع جستجو و نمایش کالاها با دو حالت تعاملی و فیلتر-محور
-    """
-
+def search_products_cli(
+    db,
+    console,
+    interactive: bool = False,
+    name: Optional[str] = None,
+    category: Optional[str] = None
+):
     # ۱. حالت تعاملی (Interactive Mode)
     if interactive:
         products = db.query(Product).all()
         if not products:
             console.print(f"[yellow]{farsi('موجودی انبار خالی است.')}[/yellow]")
             return
-        
-        choices = [
-            Choice(p.id, name=f"{p.name} | {farsi('دسته')}: {p.category or '-'} | {p.price:,} {farsi('تومان')} | {farsi('موجودی')}: {p.quantity}") 
-            for p in products
-        ]
-        
+
+        choices = []
+        for p in products:
+            cat = p.category or '-'
+            line =farsi(f"{p.id:>3} | {p.name:<20} | {cat:<12} | {p.price:>10,.0f} | {p.quantity:>5}")
+            choices.append(Choice(value=p.id, name=line))
+
         selected_id = inquirer.fuzzy(
-            message=farsi("کالای مورد نظر را جستجو و انتخاب کنید:"),
+            message=farsi("کالا را جستجو یا انتخاب کنید:"),
             choices=choices,
             multiselect=False
         ).execute()
-        
+
         if selected_id:
             product = db.query(Product).filter(Product.id == selected_id).first()
             if product:
                 display_product_table(console, product)
         return
 
-    # ۲. حالت غیر تعاملی (Non-Interactive / Filter Mode)
+    # ۲. حالت غیر تعاملی (Filter Mode)
     query = db.query(Product)
     if name:
         query = query.filter(Product.name.contains(name))
     if category:
         query = query.filter(Product.category == category)
-    
-    products = query.all()
 
+    products = query.all()
     if not products:
         console.print(f"[yellow]{farsi('کالایی با این مشخصات یافت نشد.')}[/yellow]")
     else:
@@ -189,11 +189,50 @@ def search(
     category: Optional[str] = typer.Option(None, "--category", "-c", help="دسته‌بندی")
 ):
     # تنظیمات دیتابیس و کنسول مطابق با کدهای قبلی
-    db = get_db_session() # یا هر متغیری که session دیتابیس را برمی‌گرداند
+    db = SessionLocal() # یا هر متغیری که session دیتابیس را برمی‌گرداند
     console = Console()
     
 
     search_products_cli(db, console, interactive=interactive, name=name, category=category)
+@app.command()
+def adjust_stock(
+    product_id: int = typer.Option(..., "--id", "-i", help="Product ID"),
+    amount: int = typer.Option(..., "--amount", "-a", help="Stock change amount (positive or negative)")
+):
+    """افزایش یا کاهش موجودی کالا"""
+    db = SessionLocal()
+    try:
+        product = adjust_product_stock(db, product_id, amount)
+        console.print(
+            f"[green]{farsi('موجودی با موفقیت تغییر کرد.')}[/green] "
+            f"{product.name} -> [bold]{farsi('موجودی جدید:')} {product.quantity}[/bold]"
+        )
+    except ValueError as e:
+        console.print(f"[red]{farsi(str(e))}[/red]")
+    finally:
+        db.close()
+@app.command(name="low-stock")
+def low_stock_command(
+    threshold: int = typer.Option(5, help="آستانه هشدار کسری موجودی")
+):
+    """گزارش‌گیری و نمایش کالاهای کم‌موجودی انبار"""
+    session = SessionLocal()
+    try:
+        products = get_low_stock_products(session, threshold=threshold)
+        
+        if not products:
+            typer.echo(farsi(f"هیچ کالایی با موجودی کمتر یا مساوی {threshold} یافت نشد."))
+            return
+
+        typer.echo(farsi(f"\n⚠️ لیست کالاهای کم‌موجودی (آستانه: {threshold}):\n" + "-" * 50))
+        for p in products:
+            # تغییر از p.stock به p.quantity
+            typer.echo(farsi(f"ID: {p.id} | Name: {p.name} | Quantity: {p.quantity}"))
+    except Exception as e:
+        # اصلاح: پارامتر err=True فقط برای typer.echo است
+        typer.echo(farsi(f"خطا در دریافت گزارش: {e}"), err=True)
+    finally:
+        session.close()
 
 if __name__ == "__main__":
     app()

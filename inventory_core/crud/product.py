@@ -68,6 +68,7 @@ def advanced_search_products(
 ):
     stmt = db.query(Product)
 
+<<<<<<< HEAD
     # جستجوی متنی روی نام، دسته‌بندی یا شناسه
     if query:
         search_pattern = f"%{query}%"
@@ -90,3 +91,28 @@ def advanced_search_products(
         stmt = stmt.filter(Product.quantity > 0)
 
     return stmt.all()
+=======
+def advanced_search_products(db: Session, query: str = None, category_id: int = None):
+    q = db.query(Product)
+    if query:
+        q = q.filter(Product.name.ilike(f"%{query}%"))
+    if category_id is not None:
+        q = q.filter(Product.category_id == category_id)
+    return q.all()
+def adjust_product_stock(db: Session, product_id: int, amount: int) -> Product:
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise ValueError("محصول یافت نشد.")
+    
+    new_quantity = product.quantity + amount
+    if new_quantity < 0:
+        raise ValueError(f"موجودی ناکافی است. موجودی فعلی: {product.quantity}")
+    
+    product.quantity = new_quantity
+    db.commit()
+    db.refresh(product)
+    return product
+def get_low_stock_products(session: Session, threshold: int = 5) -> list[Product]:
+    """دریافت لیست کالاهایی که موجودی آن‌ها کمتر یا مساوی آستانه مشخص است"""
+    return session.query(Product).filter(Product.quantity <= threshold).all()
+>>>>>>> 271c72379f8887081321b225d83203250ebb9cf1
