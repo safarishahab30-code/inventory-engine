@@ -46,10 +46,12 @@ def list_products():
         table.add_column(farsi("موجودی"), justify="center")
 
         for p in products:
-            if p.quantity == 0:
-                qty_str = f"[bold red]{p.quantity} ({farsi('ناموجود')})[/bold red]"
-            elif p.quantity < 5:
-                qty_str = f"[bold yellow]{p.quantity}[/bold yellow]"
+            # تغییر در فایل app_cli.py
+            if (p.quantity or 0) == 0:
+                qty_str = f"[bold red]{p.quantity or 0} ({farsi('ناموجود')})[/bold red]"
+            elif (p.quantity or 0) < 5:
+                qty_str = f"[bold yellow]{p.quantity or 0}[/bold yellow]"
+
             else:
                 qty_str = f"[bold green]{p.quantity}[/bold green]"
 
@@ -57,7 +59,8 @@ def list_products():
                 str(p.id),
                 farsi(p.name),
                 farsi(p.category or "-"),
-                f"{p.price:,.0f}",
+                # تغییر در فایل app_cli.py
+                f"{(p.price or 0):,.0f}",
                 qty_str
             )
 
@@ -65,15 +68,44 @@ def list_products():
     finally:
         db.close()
 
+# تغییر پیشنهادی برای add-product تعاملی
 @app.command(name="add-product")
-def add_product(name: str, price: float, category: str):
-    db = SessionLocal() # یکسان‌سازی با سایر توابع
+def add_product():
+    db = SessionLocal()
     try:
-        product_data = ProductCreate(name=name, price=price, category=category)
-        new_product = product_crud.create(db, obj_in=product_data)
-        console.print(farsi(f"[green]محصول با شناسه {new_product.id} ثبت شد.[/green]"))
+        # دریافت ورودی‌ها
+        name = inquirer.text(message=farsi("نام کالا را وارد کنید:")).execute().strip()
+        
+        # دریافت و تبدیل قیمت‌ها با مدیریت خطا
+        try:
+            price = float(inquirer.text(message=farsi("قیمت خرید کالا را وارد کنید:")).execute().strip())
+            selling_price = float(inquirer.text(message=farsi("قیمت فروش کالا را وارد کنید:")).execute().strip())
+        except ValueError:
+            console.print(farsi("[red]❌ قیمت‌ها باید اعداد معتبر باشند.[/red]"))
+            return
+
+        category = inquirer.text(message=farsi("دسته‌بندی کالا را وارد کنید:")).execute().strip()
+        sku = inquirer.text(message=farsi("شناسه محصول (SKU) را وارد کنید:")).execute().strip()
+
+        # ساخت آبجکت داده منطبق با Schema جدید
+        product_data = ProductCreate(
+            name=name, 
+            price=price, 
+            selling_price=selling_price, 
+            category=category, 
+            sku=sku
+        )
+        
+        # ثبت در دیتابیس
+        product_crud.create(db, obj_in=product_data)
+        console.print(farsi("[green]✅ محصول با موفقیت ثبت شد.[/green]"))
+
+    except Exception as e:
+        console.print(f"[red]❌ خطا در ثبت محصول: {e}[/red]")
+
     finally:
         db.close()
+
 @app.command(name="delete")
 def delete(product_id: int):
     session = SessionLocal()

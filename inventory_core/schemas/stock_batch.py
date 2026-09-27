@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
-
 class StockBatchBase(BaseModel):
     batch_number: str = Field(..., min_length=2, max_length=50)
     quantity_initial: int = Field(..., gt=0)
