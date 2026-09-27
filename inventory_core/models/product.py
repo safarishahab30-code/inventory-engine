@@ -1,19 +1,22 @@
-from datetime import datetime
-from sqlalchemy import Integer, String, Float, DateTime
-from sqlalchemy.orm import Mapped, mapped_column
+from typing import List
+from sqlalchemy import Integer, String, Float
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from inventory_core.database import Base
-
 
 class Product(Base):
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    category: Mapped[str] = mapped_column(String(50), nullable=False)
-    price: Mapped[float] = mapped_column(Float, nullable=False)
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    barcode: Mapped[str] = mapped_column(String(50), unique=True, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    sku: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    selling_price: Mapped[float] = mapped_column(Float, nullable=False)
+    min_stock_level: Mapped[int] = mapped_column(Integer, default=0)
+
+    batches: Mapped[List["StockBatch"]] = relationship(
+        "StockBatch", 
+        back_populates="product", 
+        cascade="all, delete-orphan"
+    )
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
@@ -44,3 +47,9 @@ class ProductResponse(ProductBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+
+
+
+

@@ -17,3 +17,15 @@ SessionLocal = sessionmaker(
 
 class Base(DeclarativeBase):
     pass
+def init_db():
+    import inventory_core.models.product
+    import inventory_core.models.stock_batch
+    Base.metadata.create_all(bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+init_db()
