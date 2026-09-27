@@ -34,11 +34,10 @@ def _make_product(name: str = "کتاب تستی") -> ProductCreate:
         description="توضیحات تستی",
         category="کتاب",
         price=150000,
+        selling_price=200000,  # <-- این خط را اضافه کن
         unit="جلد",
         min_stock=5,
     )
-
-
 def test_create_and_get_product(db_session):
     created = create_product(db_session, _make_product())
     assert created.id is not None

@@ -1,8 +1,7 @@
 from typing import List, Optional
-from sqlalchemy import Integer, String, Float, Text
-from sqlalchemy import Float, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from inventory_core.database import Base
+from sqlalchemy import Column, Integer, String, Float, DateTime
 
 class Product(Base):
     __tablename__ = "products"
@@ -18,6 +17,7 @@ class Product(Base):
     min_stock: Mapped[int] = mapped_column(Integer, default=0)
     barcode: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     batches = relationship("StockBatch", back_populates="product")
+    selling_price = Column(Float, nullable=False, default=0.0)
 
     @classmethod
     def create(cls, db_session, name: str, price: float, quantity: int, sku: str = "DEFAULT_SKU", category: str = "General", **kwargs):
