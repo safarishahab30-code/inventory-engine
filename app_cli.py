@@ -257,7 +257,6 @@ def low_stock_command(
         console.print(table)
     finally:
         session.close()
-
 @app.command(name="report", help="گزارش آماری انبار با امکان خروجی فایل اکسل یا CSV")
 def inventory_report(
     export: str = typer.Option(
@@ -273,63 +272,69 @@ def inventory_report(
 ):
     db = SessionLocal()
     try:
-        summary = get_inventory_summary(db, low_stock_threshold=threshold)
+        # ۱. دریافت خلاصه وضعیت انبار از CRUD
+        summary = product_crud.get_inventory_summary(db, low_stock_threshold=threshold)
         
-        # ۱. نمایش وضعیت کلی در کنسول
-        summary_table = Table(title="📊 خلاصه وضعیت انبار")
-        summary_table.add_column("شاخص", style="cyan")
-        summary_table.add_column("مقدار", style="green")
+        # نمایش جدول آماری در ترمینال
+        summary_table = Table(title=farsi("📊 خلاصه وضعیت انبار"), box=box.ROUNDED)
+        summary_table.add_column(farsi("شاخص"), style="cyan")
+        summary_table.add_column(farsi("مقدار"), style="green")
 
-        summary_table.add_row("تعداد انواع کالاها", str(summary["total_products"]))
-        summary_table.add_row("مجموع موجودی فیزیکی", str(summary["total_stock"]))
-        summary_table.add_row("ارزش ریالی کل انبار", f"{summary['total_value']:,} تومان")
-        summary_table.add_row("تعداد کالاهای رو به اتمام", str(summary["low_stock_count"]))
+        summary_table.add_row(farsi("تعداد انواع کالاها"), str(summary.get("total_products", 0)))
+        summary_table.add_row(farsi("مجموع موجودی فیزیکی"), str(summary.get("total_stock", 0)))
+        summary_table.add_row(farsi("ارزش ریالی کل انبار"), f"{summary.get('total_value', 0):,} " + farsi("تومان"))
+        summary_table.add_row(farsi("تعداد کالاهای رو به اتمام"), str(summary.get("low_stock_count", 0)))
         
         console.print(summary_table)
 
-        # ۲. نمایش اقلام کم‌موجود در صورت وجود
-        if summary["low_stock_products"]:  # تغییر از low_stock_items به low_stock_products
-            console.print("\n[bold red]⚠️ کالاهای با موجودی بحرانی:[/bold red]")
-            low_table = Table()
-            low_table.add_column("شناسه", style="dim")
-            low_table.add_column("نام کالا")
-            low_table.add_column("موجودی", style="red")
+        # ۲. نمایش کالاهای با موجودی بحرانی در صورت وجود
+        low_stock_products = summary.get("low_stock_products", [])
+        if low_stock_products:
+            console.print(farsi("\n[bold red]⚠️ کالاهای با موجودی بحرانی:[/bold red]"))
+            low_table = Table(box=box.ROUNDED)
+            low_table.add_column(farsi("شناسه"), style="dim")
+            low_table.add_column(farsi("نام کالا"))
+            low_table.add_column(farsi("موجودی"), style="red")
             
-            for item in summary["low_stock_products"]:
-                low_table.add_row(str(item.id), item.name, str(item.quantity))
+            for item in low_stock_products:
+                low_table.add_row(str(item.id), farsi(item.name), str(item.quantity))
             console.print(low_table)
 
-        # ۳. پردازش خروجی فایل (در صورت مشخص شدن فلگ --export)
+        # ۳. صدور فایل در صورت ارسال فلگ export
         if export:
             export_format = export.lower().strip()
-            # آماده‌سازی داده‌ها برای اکسپورت
-            products = get_all_products(db)
+            products = product_crud.get_multi(db)
+            
             export_data = [
-            {
-                "شناسه": p.id,
-                "نام کالا": p.name,
-                "بارکد": getattr(p, 'barcode', '-'),
-                "قیمت (تومان)": p.price,
-                "موجودی": p.quantity,
-                "دسته‌بندی": p.category or "-"
-            }
-            for p in products
-                    ]
+                {
+                    "شناسه": p.id,
+                    "نام کالا": p.name,
+                    "بارکد": getattr(p, "sku", getattr(p, "barcode", "-")),
+                    "قیمت (تومان)": p.price,
+                    "موجودی": p.quantity,
+                    "دسته‌بندی": p.category or "-"
+                }
+                for p in products
+            ]
 
             output_dir = Path("exports")
+            output_dir.mkdir(parents=True, exist_ok=True)
+
             if export_format == "csv":
                 file_path = output_dir / "inventory_report.csv"
                 export_to_csv(export_data, file_path)
-                console.print(f"\n[green]✔ گزارش CSV با موفقیت ذخیره شد:[/green] {file_path}")
+                console.print(farsi(f"[green]✔ گزارش CSV با موفقیت ذخیره شد:[/green] {file_path}"))
             elif export_format in ["excel", "xlsx"]:
                 file_path = output_dir / "inventory_report.xlsx"
                 export_to_excel(export_data, file_path)
-                console.print(f"\n[green]✔ گزارش اکسل با موفقیت ذخیره شد:[/green] {file_path}")
+                console.print(farsi(f"[green]✔ گزارش اکسل با موفقیت ذخیره شد:[/green] {file_path}"))
+
             else:
-                console.print(f"\n[red]❌ فرمت نامعتبر است. فرمت‌های مجاز: csv یا excel[/red]")
+                console.print(farsi("[red]❌ فرمت نامعتبر است. فرمت‌های مجاز: csv یا excel[/red]"))
 
     finally:
         db.close()
+
 @app.command()
 def update_stock(
     product_id: int = typer.Argument(..., help="شناسه کالا"),
