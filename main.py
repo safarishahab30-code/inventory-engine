@@ -1,31 +1,35 @@
-from rich.console import Console
-from rich.table import Table
-import questionary
 from sqlalchemy.exc import IntegrityError
-
-from inventory_core.services.inventory_service import InventoryService
+from rich.table import Table
+from rich.console import Console
+import questionary
+from sqlalchemy import or_
 from inventory_core.database import SessionLocal
+# فرض بر اینکه ماژول‌های مورد نیاز در مسیر هستند
+from inventory_core.service import InventoryService
+from inventory_core.models.product import Product
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+from bidi.algorithm import get_display
+import arabic_reshaper
 from inventory_core.crud.product import product_crud
-from inventory_core.utils import farsi
-from inventory_core.schemas.product import ProductCreate
+def farsi(text):
+    # تغییر شکل حروف (Reshaping)
+    reshaped_text = arabic_reshaper.reshape(text)
+    # اصلاح جهت نمایش (Bidi)
+    return get_display(reshaped_text)
 
 console = Console()
-
 def get_safe_input(prompt):
     """دریافت ورودی با پردازش farsi."""
     full_prompt = f"{prompt} (برای بازگشت: b)"
     answer = questionary.text(farsi(full_prompt)).ask()
-
-    if answer is None:
-        return None
-
+    if answer is None: return None
     answer = answer.strip()
     if not answer or answer.lower() in {"b", "back", "بازگشت"}:
         return None
     return answer
 
 def display_status(session):
-    """نمایش وضعیت فعلی موجودی."""
     products = product_crud.get_multi(session)
     table = Table(title=farsi("وضعیت فعلی انبار"))
     table.add_column("ID", style="cyan")
@@ -33,15 +37,44 @@ def display_status(session):
     table.add_column(farsi("موجودی"), justify="right", style="green")
 
     for product in products:
-        table.add_row(
-            str(product.id),
-            farsi(product.name),
-            str(product.quantity),
-        )
+        table.add_row(str(product.id), farsi(product.name), str(product.quantity))
+    console.print(table)
+
+def search_products(session):
+    """جستجوی محصول بر اساس نام یا SKU."""
+    term = get_safe_input("عبارت مورد نظر (نام یا SKU)")
+    if term is None: return
+
+    results = product_crud.search(session, term)
+    if not results:
+        console.print(farsi("[yellow]محصولی با این مشخصات یافت نشد.[/yellow]"))
+        return
+
+    table = Table(title=farsi("نتایج جستجو"))
+    table.add_column("ID", style="cyan")
+    table.add_column(farsi("نام کالا"), style="magenta")
+    table.add_column(farsi("موجودی"), style="green")
+
+    for p in results:
+        table.add_row(str(p.id), farsi(p.name), str(p.quantity))
+    console.print(table)
+
+def show_logs(service):
+    """نمایش تاریخچه تراکنش‌ها."""
+    logs = service.get_transaction_history()
+    
+    table = Table(title=farsi("تاریخچه تراکنش‌ها"))
+    table.add_column(farsi("تاریخ"), style="dim")
+    table.add_column(farsi("نوع"), style="cyan")
+    table.add_column(farsi("تعداد"), style="magenta")
+
+    for log in logs:
+        # تنظیم بر اساس فیلدهای مدل موجود
+        table.add_row(str(log.timestamp), farsi(log.type), str(log.quantity))
+    
     console.print(table)
 
 def create_product(session):
-    """ایجاد محصول جدید با مدیریت خطای IntegrityError."""
     name = get_safe_input("نام کالا")
     if name is None: return
     sku = get_safe_input("کد SKU")
@@ -53,28 +86,17 @@ def create_product(session):
 
     try:
         price = float(price_text)
-        if price < 0: raise ValueError
-        
-        new_product = ProductCreate(
-            name=name,
-            sku=sku,
-            category=category,
-            price=price,
-            selling_price=price,
-        )
+        new_product = ProductCreate(name=name, sku=sku, category=category, price=price, selling_price=price)
         product_crud.create(session, obj_in=new_product)
         console.print(farsi("[bold green]✅ محصول با موفقیت ایجاد شد.[/bold green]"))
     except IntegrityError:
         session.rollback()
-        console.print(farsi("[bold red]❌ خطا: این SKU قبلاً در سیستم ثبت شده است.[/bold red]"))
-    except ValueError:
-        console.print(farsi("[bold red]❌ قیمت باید یک عدد معتبر و مثبت باشد.[/bold red]"))
+        console.print(farsi("[bold red]❌ خطا: این SKU قبلاً ثبت شده است.[/bold red]"))
     except Exception as error:
         session.rollback()
         console.print(farsi(f"[bold red]❌ خطا: {error}[/bold red]"))
 
 def add_stock(service):
-    """افزودن موجودی."""
     pid_text = get_safe_input("شناسه محصول (ID)")
     if pid_text is None: return
     qty_text = get_safe_input("تعداد ورودی")
@@ -83,64 +105,48 @@ def add_stock(service):
     if price_text is None: return
 
     try:
-        product_id = int(pid_text)
-        quantity = int(qty_text)
-        purchase_price = float(price_text)
-
-        if product_id <= 0 or quantity <= 0 or purchase_price < 0:
-            raise ValueError
-
-        service.add_stock(product_id, quantity, purchase_price)
+        service.add_stock(int(pid_text), int(qty_text), float(price_text))
         console.print(farsi("[bold green]✅ موجودی با موفقیت اضافه شد.[/bold green]"))
-    except ValueError:
-        console.print(farsi("[bold red]❌ مقادیر وارد شده نامعتبر هستند.[/bold red]"))
     except Exception as error:
-        console.print(farsi(f"[bold red]❌ افزودن موجودی ناموفق بود: {error}[/bold red]"))
+        console.print(farsi(f"[bold red]❌ ناموفق: {error}[/bold red]"))
 
 def issue_stock(service):
-    """کسر موجودی با اعتبارسنجی دقیق."""
     pid_text = get_safe_input("شناسه محصول (ID)")
     if pid_text is None: return
     qty_text = get_safe_input("تعداد خروجی")
     if qty_text is None: return
 
     try:
-        product_id = int(pid_text)
-        quantity = int(qty_text)
-
-        if product_id <= 0:
-            console.print(farsi("[bold red]❌ شناسه کالا باید بزرگتر از صفر باشد.[/bold red]"))
-            return
-        if quantity <= 0:
-            console.print(farsi("[bold red]❌ تعداد کالا باید بزرگتر از صفر باشد.[/bold red]"))
-            return
-
-        service.issue_stock(product_id, quantity)
+        service.issue_stock(int(pid_text), int(qty_text))
         console.print(farsi("[bold yellow]⚠️ موجودی کسر شد.[/bold yellow]"))
-    except ValueError:
-        console.print(farsi("[bold red]❌ ورودی‌ها باید فقط عدد صحیح باشند.[/bold red]"))
     except Exception as error:
-        console.print(farsi(f"[bold red]❌ خروج کالا ناموفق بود: {error}[/bold red]"))
-
+        console.print(farsi(f"[bold red]❌ ناموفق: {error}[/bold red]"))
 def main():
-    session = SessionLocal()
+    session =SessionLocal()
     service = InventoryService(session)
 
-    try:
+    try:  # شروع بلاک try
         while True:
+            console.clear()
             choice = questionary.select(
-                farsi("Inventory Engine - پنل مدیریت:"),
+                message=farsi("Inventory Engine - پنل مدیریت:"),
                 choices=[
                     farsi("ایجاد محصول جدید"),
                     farsi("افزودن کالا"),
                     farsi("خروج کالا"),
                     farsi("مشاهده موجودی"),
+                    farsi("جستجوی پیشرفته"),
+                    farsi("مشاهده تاریخچه تراکنش‌ها"),
                     farsi("خروج")
-                ],
+                ]
             ).ask()
 
-            if choice is None: break
+            # بررسی خروج
+            if choice is None or choice == farsi("خروج"):
+                console.print(farsi("[bold red]سیستم متوقف شد.[/bold red]"))
+                break
 
+            # مدیریت انتخاب‌ها (خارج از بلاک break)
             if choice == farsi("ایجاد محصول جدید"):
                 create_product(session)
             elif choice == farsi("افزودن کالا"):
@@ -149,14 +155,15 @@ def main():
                 issue_stock(service)
             elif choice == farsi("مشاهده موجودی"):
                 display_status(session)
-                questionary.press_any_key_to_continue(farsi("برای بازگشت کلید بزنید...")).ask()
-            elif choice == farsi("خروج"):
-                console.print(farsi("[bold red]سیستم متوقف شد.[/bold red]"))
-                break
+                questionary.press_any_key_to_continue(farsi("\nبرای بازگشت کلید بزنید...")).ask()
+            elif choice == farsi("جستجوی پیشرفته"):
+                # فرض بر اینکه این تابع را قبلاً تعریف کرده‌ای
+                run_advanced_search(session) 
+            elif choice == farsi("مشاهده تاریخچه تراکنش‌ها"):
+                show_logs(service)
+                
     except KeyboardInterrupt:
-        console.print(farsi("\n[bold yellow]عملیات لغو شد.[/bold yellow]"))
-    except Exception as error:
-        console.print(farsi(f"[bold red]❌ خطا رخ داد: {error}[/bold red]"))
+        console.print(farsi("\n[bold yellow]عملیات توسط کاربر لغو شد.[/bold yellow]"))
     finally:
         session.close()
 

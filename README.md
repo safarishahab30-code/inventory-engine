@@ -1,37 +1,38 @@
 # Inventory Engine
 
-A robust, modular console/CLI inventory management system built with Python, SQLAlchemy 2.0, Pydantic V2, and Typer.
+یک سیستم مدیریت انبار (CLI) ماژولار و بهینه، توسعه‌یافته با Python 3.10+ جهت اتوماسیون عملیات موجودی و پیگیری دقیق تراکنش‌های کالا.
 
-## Architecture
+## 🚀 ویژگی‌های فنی (Key Features)
+- **معماری ماژولار:** تفکیک کامل لایه‌های ORM، Logic و CLI.
+- **تضمین سلامت داده‌ها:** استفاده از **Pydantic V2** برای اعتبارسنجی ورودی‌ها (Schema Validation).
+- **مدیریت دیتابیس:** استفاده از **SQLAlchemy 2.0** برای ارتباطی امن و مقیاس‌پذیر با پایگاه داده.
+- **رابط کاربری تعاملی:** طراحی CLI با استفاده از **Typer** و خروجی‌های خوانا با **Rich**.
+- **تست‌محور:** دارای تست‌های خودکار (Pytest) برای تضمین عملکرد صحیح CRUD.
 
-The project follows a clean multi-layer design pattern:
+`
 
-- **`models/`**: SQLAlchemy declarative ORM models defining database schema and relationships.
-- **`schemas/`**: Pydantic models for data validation, integrity checks, and serialization.
-- **`crud/`**: Encapsulated database operations (CRUD logic) separating persistence from business rules.
-- **`cli/`**: Typer-powered command-line interface handling user interactions and formatted output.
-
-## Tech Stack
-
-- **Language:** Python 3.10+
-- **ORM & Database:** SQLAlchemy 2.0, SQLite
-- **Validation:** Pydantic V2
-- **CLI Framework:** Typer
-- **Terminal Formatting:** Rich
-
-## Getting Started
-
-### 1. Setup Virtual Environment
-```bash
-python -m venv .venv
-# Windows (PowerShell):
-.venv\Scripts\Activate.ps1
-# Linux/macOS:
-source .venv/bin/activate
--------------------
-2. Install Dependencies
-pip install -r requirements.txt
-3. Initialize Database
-python init_db.py
-4. Run CLI
-python app_cli.py --help
+markdown
+## 🏗 ساختار پروژه
+```text
+inventory-engine/
+├── cli/          # مدیریت دستورات ترمینال
+├── crud/         # توابع عملیاتی دیتابیس
+├── models/       # تعریف جداول و روابط (ORM)
+├── schemas/      # مدل‌های اعتبارسنجی (Pydantic)
+├── tests/        # تست‌های واحد و یکپارچگی
+├── app_cli.py    # نقطه ورود برنامه (Entry point)
+└── init_db.py    # اسکریپت اولیه دیتابیس
+🛠 تکنولوژی‌ها
+Language: Python 3.10+
+ORM: SQLAlchemy 2.0
+Validation: Pydantic V2
+CLI: Typer
+UI/Terminal: Rich
+Testing: Pytest
+🚀 راه‌اندازی (Setup)
+کلون مخزن و ورود به پوشه پروژه:
+bash
+   git clone https://github.com/safarishah30-code/inventory-engine.git
+   cd inventory-engine
+   
+`

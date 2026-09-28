@@ -40,28 +40,42 @@ def delete_product(db: Session, product_id: int):
         return True
     return False
 
-def advanced_search_products(
-    db: Session,
-    name: str = None,
-    category: str = None,
-    min_price: float = None,
-    max_price: float = None,
-    in_stock: bool = None
-):
-    q = db.query(Product)
-    if name:
-        q = q.filter(Product.name.ilike(f"%{name}%"))
-    if category:
-        q = q.filter(Product.category.ilike(f"%{category}%"))
-    if min_price is not None:
-        q = q.filter(Product.price >= min_price)
-    if max_price is not None:
-        q = q.filter(Product.price <= max_price)
-    if in_stock is True:
-        q = q.filter(Product.quantity > 0)
-    elif in_stock is False:
-        q = q.filter(Product.quantity == 0)
-    return q.all()
+def run_advanced_search(session):
+    """واسط کاربری برای جستجوی پیشرفته."""
+    console.print(farsi("[bold blue]جستجوی پیشرفته - مقادیر غیرضروری را خالی رها کنید (Enter بزنید).[/bold blue]"))
+    
+    name = get_safe_input(farsi("نام کالا"))
+    category = get_safe_input(farsi("دسته‌بندی"))
+    min_price_str = get_safe_input(farsi("حداقل قیمت"))
+    max_price_str = get_safe_input(farsi("حداکثر قیمت"))
+    
+    # تبدیل ایمن قیمت‌ها
+    min_price = float(min_price_str) if min_price_str and min_price_str.replace('.','',1).isdigit() else None
+    max_price = float(max_price_str) if max_price_str and max_price_str.replace('.','',1).isdigit() else None
+
+    # فراخوانی تابع اصلی
+    results = advanced_search_products(
+        session, 
+        name=name, 
+        category=category, 
+        min_price=min_price, 
+        max_price=max_price
+    )
+
+    if not results:
+        console.print(farsi("[yellow]محصولی با این شرایط یافت نشد.[/yellow]"))
+        return
+
+    # نمایش در جدول
+    table = Table(title=farsi("نتایج جستجوی پیشرفته"))
+    table.add_column("ID", style="cyan")
+    table.add_column(farsi("نام کالا"), style="magenta")
+    table.add_column(farsi("قیمت"), style="green")
+    
+    for p in results:
+        table.add_row(str(p.id), farsi(p.name), str(p.price))
+    console.print(table)
+
 
 def get_inventory_summary(db: Session, low_stock_threshold: int = 5):
     stats = db.query(
