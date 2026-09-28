@@ -34,11 +34,7 @@ def _make_product(name: str = "کتاب تستی") -> ProductCreate:
         description="توضیحات تستی",
         category="کتاب",
         price=150000,
-<<<<<<< HEAD
-        selling_price=200000,  # اضافه کردن این فیلد برای مطابقت با اسکیما
-=======
-        selling_price=200000,  # <-- این خط را اضافه کن
->>>>>>> 49014bb2b887fca2a1eb2111a96602a36029bc4e
+        selling_price=200000,
         unit="جلد",
         min_stock=5,
     )
