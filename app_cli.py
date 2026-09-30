@@ -335,18 +335,26 @@ def inventory_report(
     finally:
         db.close()
 
-@app.command()
-def update_stock(
-    product_id: int = typer.Argument(..., help="شناسه کالا"),
-    new_quantity: int = typer.Argument(..., help="تعداد موجودی جدید")
-):
+@app.command(name="add-stock")
+def add_stock(product_id: int, amount: int):
     db = SessionLocal()
     try:
-        updated_product = product_crud.update(db, id=product_id, obj_in={"quantity": new_quantity})
-        if updated_product:
-            console.print(farsi(f"[green]✅ موجودی کالای {updated_product.name} به {new_quantity} تغییر یافت.[/green]"))
+        product = product_crud.increase_stock(db, product_id, amount)
+        if product:
+            console.print(farsi(f"[green]✅ موجودی {product.name} با موفقیت {amount} واحد افزایش یافت.[/green]"))
         else:
-            console.print(farsi(f"[red]❌ کالایی با شناسه {product_id} یافت نشد.[/red]"))
+            console.print(farsi("[red]❌ کالا یافت نشد.[/red]"))
+    finally:
+        db.close()
+
+@app.command(name="sell")
+def sell(product_id: int, amount: int):
+    db = SessionLocal()
+    try:
+        if product_crud.record_sale(db, product_id, amount):
+            console.print(farsi("[green]✅ فروش ثبت شد و از موجودی کسر گردید.[/green]"))
+        else:
+            console.print(farsi("[red]❌ فروش ناموفق: موجودی کافی نیست یا کالا یافت نشد.[/red]"))
     finally:
         db.close()
 

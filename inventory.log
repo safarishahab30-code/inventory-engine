@@ -1,0 +1,10 @@
+2026-09-30 17:21:27,227 - INFO - Action: RECEIVE_ORDER | Details: PID:5, Qty:55
+2026-09-30 17:33:25,734 - INFO - Action: EXPORT_REPORT | Details: low_stock.csv generated
+2026-09-30 17:57:19,295 - INFO - Action: EXPORT_REPORT | Details: low_stock.csv generated
+2026-09-30 17:57:51,582 - INFO - Action: ADD_STOCK | Details: PID:6, Qty:50, Batch:6
+2026-09-30 18:08:34,635 - INFO - Action: EXPORT_REPORT | Details: low_stock.csv generated
+2026-09-30 18:09:57,366 - INFO - Action: ISSUE_STOCK | Details: PID:1, Qty:10
+2026-09-30 18:48:52,451 - INFO - Action: ISSUE_STOCK | Details: PID:2, Qty:4
+2026-09-30 18:49:08,952 - INFO - Action: ISSUE_STOCK | Details: PID:5, Qty:4
+2026-09-30 19:17:47,769 - INFO - Action: ISSUE_STOCK | Details: PID:5, Qty:5
+2026-09-30 19:18:48,328 - INFO - Action: RECEIVE_ORDER | Details: PID:1, Qty:50

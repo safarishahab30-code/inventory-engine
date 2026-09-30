@@ -12,6 +12,11 @@ class InventoryService:
     def __init__(self, session):
         self.session = session
         self.db = session
+    def get_transaction_history(self):
+        count = self.db.query(StockMovement).count()
+        print(f"DEBUG: StockMovement count = {count}")
+        return self.db.query(StockMovement).order_by(StockMovement.created_at.desc()).limit(20).all()
+
 
     def add_stock(
         self,
@@ -33,7 +38,16 @@ class InventoryService:
         )
         product.quantity += quantity
 
+        # ثبت لاگ تراکنش ورود کالا
+        movement = StockMovement(
+            product_id=product_id,
+            change_qty=quantity,
+            movement_type="IN",
+            reason=f"ورود کالا با بهر {batch_name}",
+        )
+
         self.db.add(new_batch)
+        self.db.add(movement)
         self.db.commit()
         self.db.refresh(product)
         return new_batch
@@ -71,6 +85,19 @@ class InventoryService:
             raise ValueError(f"موجودی کافی برای محصول {product_id} نیست.")
 
         product.quantity -= quantity
+
+        # ثبت لاگ تراکنش خروج کالا
+        movement = StockMovement(
+            product_id=product_id,
+            change_qty=-quantity,
+            movement_type="OUT",
+            reason="خروج کالا بر اساس FIFO",
+        )
+        self.db.add(movement)
+
+        self.db.commit()
+        self.db.refresh(product)
+
 
         self.db.commit()
         self.db.refresh(product)

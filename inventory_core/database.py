@@ -1,31 +1,31 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-DATABASE_URL = "sqlite:///inventory.db"
+# مسیر فایل دیتابیس
+DATABASE_URL = "sqlite:///./inventory.db"
 
+# تنظیم موتور دیتابیس
 engine = create_engine(
     DATABASE_URL,
-    echo=False,
     connect_args={"check_same_thread": False}
 )
 
-SessionLocal = sessionmaker(
-    bind=engine,
-    autocommit=False,
-    autoflush=False
-)
+# تنظیم سشن
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class Base(DeclarativeBase):
     pass
-def init_db():
-    import inventory_core.models.product
-    import inventory_core.models.stock_batch
-    Base.metadata.create_all(bind=engine)
 
+# تابع برای دریافت سشن (استفاده در اپلیکیشن)
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-init_db()
+
+# تابع ساخت جداول (فقط در مرحله init)
+def init_db():
+    from inventory_core.models.product import Product
+    from inventory_core.models.stock_batch import StockBatch
+    Base.metadata.create_all(bind=engine)

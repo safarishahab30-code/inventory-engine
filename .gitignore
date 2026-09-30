@@ -1,8 +1,8 @@
-venv/
+# Python
 __pycache__/
 *.pyc
-*.db
-.pytest_cache/
+venv/
 .env
-
-exports/
+.vscode/
+*.sqlite
+data/

@@ -98,13 +98,29 @@ def get_inventory_summary(db: Session, low_stock_threshold: int = 5):
 
 # --- کلاس CRUD ---
 
-class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
+class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):                        
+    def increase_stock(self, db: Session, product_id: int, amount: int):
+        p = get_product(db, product_id)
+        if p:
+            p.quantity = (p.quantity or 0) + amount
+            db.commit()
+            return p
+        return None
+
+    def record_sale(self, db: Session, product_id: int, amount: int):
+        p = get_product(db, product_id)
+        if p and (p.quantity or 0) >= amount:
+            p.quantity -= amount
+            db.commit()
+            return True # فروش موفق
+        return False # موجودی کافی نیست یا کالا یافت نشد
+
     
     def create(self, db: Session, *, obj_in: ProductCreate) -> Product:
         # اتصال کلاس به منطق ایجاد محصول
         return create_product(db, obj_in)
 
-    def get_inventory_summary(self, db: Session, low_stock_threshold: int = 5):
+    def get_inve                                           ntory_summary(self, db: Session, low_stock_threshold: int = 5):
         return get_inventory_summary(db, low_stock_threshold)
 
 product_crud = CRUDProduct(Product)
