@@ -120,7 +120,7 @@ class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
         # اتصال کلاس به منطق ایجاد محصول
         return create_product(db, obj_in)
 
-    def get_inve                                           ntory_summary(self, db: Session, low_stock_threshold: int = 5):
+    def get_inventory_summary(self, db: Session, low_stock_threshold: int = 5):
         return get_inventory_summary(db, low_stock_threshold)
 
 product_crud = CRUDProduct(Product)

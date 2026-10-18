@@ -1,7 +1,7 @@
 from typing import List, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from inventory_core.database import Base
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float
 
 class Product(Base):
     __tablename__ = "products"
