@@ -1,8 +1,26 @@
-# Python
+﻿# Byte-compiled / optimized / cache
 __pycache__/
-*.pyc
+*.py[cod]
+*.class
+.pytest_cache/
+
+# Environments
+.venv/
 venv/
-.env
-.vscode/
+ENV/
+
+# Databases & local logs
+*.db
 *.sqlite
-data/
+*.sqlite3
+inventory.log
+*.log
+
+# Exported reports & outputs
+*.csv
+*.xlsx
+*.pdf
+
+# IDEs
+.vscode/
+.idea/
