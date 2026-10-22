@@ -15,6 +15,7 @@ from inventory_core.reports import count_low_stock, get_low_stock_report, check_
 from inventory_core.utils import farsi
 from inventory_core.logic import log_event, InventoryService
 from inventory_core.models.transaction import TransactionLog
+from app_cli import edit_product_ui, delete_product_ui
 
 
 
@@ -136,6 +137,14 @@ def add_stock(service):
         console.print(farsi("[bold green]✅ موجودی با موفقیت اضافه شد.[/bold green]"))
     except Exception as error:
         console.print(farsi(f"[bold red]❌ ناموفق: {error}[/bold red]"))
+
+def edit_product_ui(db):
+    sku = questionary.text(farsi("کد کالا (SKU) را وارد کنید:")).ask()
+    product = product_crud.get_by_sku(db, sku)
+    if not product:
+        print(farsi("کالایی با این کد یافت نشد."))
+        return
+
 def issue_stock(service):
     pid_text = get_safe_input("شناسه محصول (ID)")
     if pid_text is None: return
@@ -178,7 +187,7 @@ def run_advanced_search(service: InventoryService):
 
 
 def main():
-    session = session = SessionLocal()
+    session = SessionLocal()
     service = InventoryService(session)
     pending_orders = []
 
@@ -201,6 +210,8 @@ def main():
                 message=farsi("Inventory Engine - پنل مدیریت:"),
                 choices=[
                     farsi("ایجاد محصول جدید"),
+                    farsi("ویرایش اطلاعات کالا"),
+                    farsi("حذف کالا"),
                     farsi("افزودن کالا"),
                     farsi("خروج کالا"),
                     farsi("مشاهده موجودی"),
@@ -222,26 +233,36 @@ def main():
             if choice == farsi("ایجاد محصول جدید"):
                 create_product(session)
 
-            # ۲. افزایش موجودی
+            # ۲. ویرایش اطلاعات کالا
+            elif choice == farsi("ویرایش اطلاعات کالا"):
+                edit_product_ui(session)
+                questionary.press_any_key_to_continue(farsi("برای بازگشت کلید بزنید...")).ask()
+
+            # ۳. حذف کالا
+            elif choice == farsi("حذف کالا"):
+                delete_product_ui(session)
+                questionary.press_any_key_to_continue(farsi("برای بازگشت کلید بزنید...")).ask()
+
+            # ۴. افزایش موجودی
             elif choice == farsi("افزودن کالا"):
                 add_stock(service)
                 questionary.press_any_key_to_continue(farsi("برای بازگشت کلید بزنید...")).ask()
 
-            # ۳. خروج موجودی
+            # ۵. خروج موجودی
             elif choice == farsi("خروج کالا"):
                 issue_stock(service)
                 questionary.press_any_key_to_continue(farsi("برای بازگشت کلید بزنید...")).ask()
 
-            # ۴. مشاهده موجودی کل
+            # ۶. مشاهده موجودی کل
             elif choice == farsi("مشاهده موجودی"):
                 display_status(session)
                 questionary.press_any_key_to_continue(farsi("\nبرای بازگشت کلید بزنید...")).ask()
 
-            # ۵. جستجوی پیشرفته
+            # ۷. جستجوی پیشرفته
             elif choice == farsi("جستجوی پیشرفته"):
                 run_advanced_search(service)
 
-            # ۶. مشاهده تاریخچه تراکنش‌ها
+            # ۸. مشاهده تاریخچه تراکنش‌ها
             elif choice == farsi("مشاهده تاریخچه تراکنش‌ها"):
                 page = 1
                 while True:
@@ -258,14 +279,14 @@ def main():
                         page += 1
                     elif cmd == "2":
                         tid = questionary.text(farsi("شناسه تراکنش برای حذف را وارد کنید: ")).ask()
-                        pwd = questionary.text(farsi("رمز عبور مدیریت را وارد کنید: ")).ask()
+                        pwd = questionary.password(farsi("رمز عبور مدیریت را وارد کنید: ")).ask()
                         if service.delete_transaction(int(tid), pwd):
                             print(farsi("تراکنش با موفقیت حذف شد."))
                         else:
                             print(farsi("خطا: رمز عبور اشتباه است یا شناسه وجود ندارد."))
                         questionary.press_any_key_to_continue(farsi("برای ادامه کلید بزنید...")).ask()
                     elif cmd == "3":
-                        pwd = questionary.text(farsi("رمز عبور مدیریت برای پاکسازی کل لاگ‌ها: ")).ask()
+                        pwd = questionary.password(farsi("رمز عبور مدیریت برای پاکسازی کل لاگ‌ها: ")).ask()
                         if service.clear_all_logs(pwd):
                             print(farsi("تمامی تاریخچه تراکنش‌ها با موفقیت پاک شدند."))
                         else:
@@ -274,7 +295,7 @@ def main():
                     else:
                         break
 
-            # ۷. ثبت سفارش کسری‌ها
+            # ۹. ثبت سفارش کسری‌ها
             elif choice == farsi("ثبت سفارش کسری‌ها"):
                 items = get_low_stock_report(session)
                 if not items:
@@ -311,7 +332,7 @@ def main():
 
                 questionary.press_any_key_to_continue(farsi("برای بازگشت کلید بزنید...")).ask()
 
-            # ۸. مشاهده سفارش‌های در انتظار
+            # ۱۰. مشاهده سفارش‌های در انتظار
             elif choice == farsi("مشاهده لیست سفارش‌های در انتظار"):
                 if not pending_orders:
                     console.print(farsi("[bold yellow]لیست سفارش‌های در انتظار خالی است.[/bold yellow]"))
@@ -323,7 +344,7 @@ def main():
                         )
                 questionary.press_any_key_to_continue(farsi("\nبرای بازگشت کلید بزنید...")).ask()
 
-            # ۹. ثبت نهایی
+            # ۱۱. ثبت نهایی
             elif choice == farsi("ثبت نهایی"):
                 if not pending_orders:
                     console.print(farsi("[yellow]هیچ سفارشی در لیست موقت وجود ندارد.[/yellow]"))
@@ -343,6 +364,8 @@ def main():
 
                     pending_orders = remaining_orders
                 questionary.press_any_key_to_continue(farsi("برای بازگشت کلید بزنید...")).ask()
+
+            # ۱۲. گزارش CSV
             elif choice == farsi("گزارش موجودی کم (Export to CSV)"):
                 from inventory_core.reports import export_low_stock
                 export_low_stock(session)
@@ -353,6 +376,7 @@ def main():
         console.print(farsi("\n[bold yellow]عملیات توسط کاربر لغو شد.[/bold yellow]"))
     finally:
         session.close()
+
 
 if __name__ == "__main__":
     main()

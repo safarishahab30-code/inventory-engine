@@ -3,6 +3,7 @@ Set-Content -Path README.md -Value @"
 
 یک سیستم مدیریت انبار و گردش موجودی (CLI) ماژولار، توسعه‌یافته با **Python 3.13** جهت اتوماسیون عملیات انبارداری، پیگیری دقیق تراکنش‌های کالا و انبارگردانی.
 
+<<<<<<< HEAD
 ---
 
 ## ✨ ویژگی‌های کلیدی
@@ -58,6 +59,19 @@ erDiagram
 ## 📁 ساختار پروژه
 
 \`\`\`text
+=======
+## 🚀 ویژگی‌های کلیدی
+
+- **معماری ماژولار:** تفکیک کامل لایه‌های ORM، Logic و CLI.
+- **تضمین سلامت داده‌ها:** استفاده از **Pydantic V2** برای اعتبارسنجی دقیق داده‌ها.
+- **مدیریت هوشمند دیتابیسمندمد:** استفاده از **SQLAlchemy 2.0** برای ارتباطی امن و مقیاس‌پذیر.
+- **رابط کاربری تعاملی:** طراحی مدرن CLI با **Typer** و خروجی‌های خوانا با **Rich**.
+- **پایداری:** دارای تست‌های خودکار (**Pytest**) برای تضمین عملکردِ تراکنش‌ها.
+
+## 🏗 ساختار پروژه
+
+```text
+>>>>>>> 144faf0 (feat(api): add FastAPI web layer for products CRUD with E2E test suite)
 inventory-engine/
 ├── inventory_core/       # بسته اصلی و لایه‌های تجاری
 │   ├── models/           # مدل‌های دیتابیس (Product, StockMovement, StockBatch)
@@ -123,6 +137,7 @@ rootdir: C:\webscrapper\inventory-engine
 configfile: pytest.ini
 collected 11 items
 
+<<<<<<< HEAD
 tests/test_crud.py::test_create_and_get_product PASSED                     [  9%]
 tests/test_crud.py::test_update_product_quantity PASSED                    [ 18%]
 tests/test_crud.py::test_update_missing_product_returns_none PASSED        [ 27%]
@@ -138,3 +153,8 @@ tests/test_validation.py::test_create_product_with_empty_name PASSED       [100%
 ============================== 11 passed in 0.06s ===============================
 \`\`\`
 "@ -Encoding UTF8
+=======
+# ۳. ارسال به سرور
+git push origin main
+```
+>>>>>>> 144faf0 (feat(api): add FastAPI web layer for products CRUD with E2E test suite)

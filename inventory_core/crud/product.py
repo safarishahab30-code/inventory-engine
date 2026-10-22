@@ -4,7 +4,7 @@ from inventory_core.models.product import Product
 from inventory_core.schemas.product import ProductCreate, ProductUpdate
 from inventory_core.crud.base import CRUDBase
 
-# --- توابع کمکی ---
+# --- توابع کمکی پایه ---
 
 def get_product(db: Session, product_id: int):
     return db.query(Product).filter(Product.id == product_id).first()
@@ -40,42 +40,24 @@ def delete_product(db: Session, product_id: int):
         return True
     return False
 
-def run_advanced_search(session):
-    """واسط کاربری برای جستجوی پیشرفته."""
-    console.print(farsi("[bold blue]جستجوی پیشرفته - مقادیر غیرضروری را خالی رها کنید (Enter بزنید).[/bold blue]"))
-    
-    name = get_safe_input(farsi("نام کالا"))
-    category = get_safe_input(farsi("دسته‌بندی"))
-    min_price_str = get_safe_input(farsi("حداقل قیمت"))
-    max_price_str = get_safe_input(farsi("حداکثر قیمت"))
-    
-    # تبدیل ایمن قیمت‌ها
-    min_price = float(min_price_str) if min_price_str and min_price_str.replace('.','',1).isdigit() else None
-    max_price = float(max_price_str) if max_price_str and max_price_str.replace('.','',1).isdigit() else None
-
-    # فراخوانی تابع اصلی
-    results = advanced_search_products(
-        session, 
-        name=name, 
-        category=category, 
-        min_price=min_price, 
-        max_price=max_price
-    )
-
-    if not results:
-        console.print(farsi("[yellow]محصولی با این شرایط یافت نشد.[/yellow]"))
-        return
-
-    # نمایش در جدول
-    table = Table(title=farsi("نتایج جستجوی پیشرفته"))
-    table.add_column("ID", style="cyan")
-    table.add_column(farsi("نام کالا"), style="magenta")
-    table.add_column(farsi("قیمت"), style="green")
-    
-    for p in results:
-        table.add_row(str(p.id), farsi(p.name), str(p.price))
-    console.print(table)
-
+def advanced_search_products(
+    db: Session, 
+    name: str = None, 
+    category: str = None, 
+    min_price: float = None, 
+    max_price: float = None
+):
+    """منطق کوئری جستجوی پیشرفته در دیتابیس"""
+    query = db.query(Product)
+    if name:
+        query = query.filter(Product.name.ilike(f"%{name}%"))
+    if category:
+        query = query.filter(Product.category.ilike(f"%{category}%"))
+    if min_price is not None:
+        query = query.filter(Product.price >= min_price)
+    if max_price is not None:
+        query = query.filter(Product.price <= max_price)
+    return query.all()
 
 def get_inventory_summary(db: Session, low_stock_threshold: int = 5):
     stats = db.query(
@@ -112,15 +94,21 @@ class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
         if p and (p.quantity or 0) >= amount:
             p.quantity -= amount
             db.commit()
-            return True # فروش موفق
-        return False # موجودی کافی نیست یا کالا یافت نشد
+            return True
+        return False
 
-    
     def create(self, db: Session, *, obj_in: ProductCreate) -> Product:
-        # اتصال کلاس به منطق ایجاد محصول
         return create_product(db, obj_in)
 
     def get_inventory_summary(self, db: Session, low_stock_threshold: int = 5):
+<<<<<<< HEAD
         return get_inventory_summary(db, low_stock_threshold)
+=======
+        return get_inventory_summary(db, low_stock_threshold=low_stock_threshold)
+>>>>>>> 144faf0 (feat(api): add FastAPI web layer for products CRUD with E2E test suite)
 
+    def advanced_search(self, db: Session, **kwargs):
+        return advanced_search_products(db, **kwargs)
+
+# نمونه سراسری
 product_crud = CRUDProduct(Product)

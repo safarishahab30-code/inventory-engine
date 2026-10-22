@@ -163,6 +163,73 @@ def search_products_cli(
     else:
         for p in products:
             display_product_table(console, p)
+from inventory_core.crud.product import product_crud
+
+
+def edit_product_ui(GAPGPTMASKTOKENjj0g7pxigyX1X):
+    sku = questionary.text(farsi("کد کالا (SKU) را وارد کنید:")).ask()
+    if not sku:
+        return
+
+    product = product_crud.get_by_sku(GAPGPTMASKTOKENjj0g7pxigyX2X, sku.strip())
+    if not product:
+        console.print(farsi("[bold red]❌ خطا: کالایی با این کد یافت نشد.[/bold red]"))
+        return
+
+    console.print(farsi(f"[bold cyan]در حال ویرایش: {product.name} (شناسه: {product.id})[/bold cyan]"))
+
+    new_name = questionary.text(farsi(f"نام جدید (خالی = {product.name}):")).ask()
+    new_price_str = questionary.text(farsi(f"قیمت جدید (خالی = {product.price}):")).ask()
+    new_min_stock_str = questionary.text(farsi(f"حداقل موجودی جدید (خالی = {product.min_stock}):")).ask()
+
+    update_data = {}
+    if new_name and new_name.strip():
+        update_data["name"] = new_name.strip()
+    if new_price_str and new_price_str.strip():
+        try:
+            update_data["price"] = float(new_price_str.strip())
+        except ValueError:
+            console.print(farsi("[bold red]❌ قیمت نامعتبر است.[/bold red]"))
+            return
+    if new_min_stock_str and new_min_stock_str.strip():
+        try:
+            update_data["min_stock"] = int(new_min_stock_str.strip())
+        except ValueError:
+            console.print(farsi("[bold red]❌ حداقل موجودی باید عدد صحیح باشد.[/bold red]"))
+            return
+
+    if update_data:
+        updated = product_crud.update(db, db_obj=product, obj_in=update_data)
+        if updated:
+            console.print(farsi("[bold green]✔ اطلاعات کالا با موفقیت ویرایش شد.[/bold green]"))
+        else:
+            console.print(farsi("[bold red]❌ خطا در به‌روزرسانی کالا.[/bold red]"))
+    else:
+        console.print(farsi("[yellow]هیچ تغییری اعمال نشد.[/yellow]"))
+
+
+def delete_product_ui(GAPGPTMASKTOKENjj0g7pxigyX4X):
+    sku = questionary.text(farsi("کد کالا (SKU) جهت حذف:")).ask()
+    if not sku:
+        return
+
+    product = product_crud.get_by_sku(GAPGPTMASKTOKENjj0g7pxigyX5X, sku.strip())
+    if not product:
+        console.print(farsi("[bold red]❌ خطا: کالایی با این کد یافت نشد.[/bold red]"))
+        return
+
+    confirm = questionary.confirm(
+        farsi(f"آیا از حذف کامل «{product.name}» (SKU: {product.sku}) مطمئن هستید؟")
+    ).ask()
+
+    if confirm:
+        deleted = product_crud.remove(GAPGPTMASKTOKENjj0g7pxigyX6X, id=product.id)
+        if deleted:
+            console.print(farsi("[bold green]✔ کالا با موفقیت از سیستم حذف شد.[/bold green]"))
+        else:
+            console.print(farsi("[bold red]❌ خطا در حذف کالا از پایگاه داده.[/bold red]"))
+    else:
+        console.print(farsi("[yellow]عملیات حذف لغو شد.[/yellow]"))
 
 def display_product_table(console, product):
     """
@@ -257,6 +324,68 @@ def low_stock_command(
         console.print(table)
     finally:
         session.close()
+
+def handle_edit_product():
+    """ویرایش فیلدهای کالا بر اساس SKU یا شناسه"""
+    sku = input(farsi("کد کالا (SKU) را وارد کنید: ")).strip()
+    product = product_crud.get_by_sku(sku)
+    
+    if not product:
+        print(farsi("خطا: کالایی با این کد یافت نشد."))
+        return
+
+    print(farsi(f"در حال ویرایش: {product.name}"))
+    
+    new_name = input(farsi("نام جدید (خالی برای عدم تغییر): ")).strip()
+    new_price = input(farsi("قیمت جدید (خالی برای عدم تغییر): ")).strip()
+    new_min_stock = input(farsi("حداقل موجودی جدید (خالی برای عدم تغییر): ")).strip()
+
+    update_data = {}
+    if new_name:
+        update_data["name"] = new_name
+    if new_price:
+        try:
+            update_data["price"] = float(new_price)
+        except ValueError:
+            print(farsi("خطا: قیمت وارد شده معتبر نیست."))
+            return
+    if new_min_stock:
+        try:
+            update_data["min_stock"] = int(new_min_stock)
+        except ValueError:
+            print(farsi("خطا: حداقل موجودی باید عدد صحیح باشد."))
+            return
+
+    if update_data:
+        success = product_crud.update_product(product.id, **update_data)
+        if success:
+            print(farsi("اطلاعات کالا با موفقیت ویرایش شد."))
+        else:
+            print(farsi("خطا در ثبت تغییرات."))
+    else:
+        print(farsi("هیچ تغییری اعمال نشد."))
+
+
+def handle_delete_product():
+    """حذف کالا با تایید نهایی کاربر"""
+    sku = input(farsi("کد کالا (SKU) جهت حذف: ")).strip()
+    product = product_crud.get_by_sku(sku)
+
+    if not product:
+        print(farsi("خطا: کالایی با این کد یافت نشد."))
+        return
+
+    confirm = input(farsi(f"آیا از حذف '{product.name}' مطمئن هستید؟ (y/n): ")).strip().lower()
+    if confirm == 'y':
+        success = product_crud.delete_product(product.id)
+        if success:
+            print(farsi("کالا با موفقیت حذف شد."))
+        else:
+            print(farsi("خطا در حذف کالا از پایگاه داده."))
+    else:
+        print(farsi("عملیات حذف لغو شد."))
+
+
 @app.command(name="report", help="گزارش آماری انبار با امکان خروجی فایل اکسل یا CSV")
 def inventory_report(
     export: str = typer.Option(
