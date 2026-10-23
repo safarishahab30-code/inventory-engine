@@ -101,11 +101,7 @@ class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
         return create_product(db, obj_in)
 
     def get_inventory_summary(self, db: Session, low_stock_threshold: int = 5):
-<<<<<<< HEAD
-        return get_inventory_summary(db, low_stock_threshold)
-=======
         return get_inventory_summary(db, low_stock_threshold=low_stock_threshold)
->>>>>>> 144faf0 (feat(api): add FastAPI web layer for products CRUD with E2E test suite)
 
     def advanced_search(self, db: Session, **kwargs):
         return advanced_search_products(db, **kwargs)
