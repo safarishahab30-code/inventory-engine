@@ -5,7 +5,7 @@ from sqlalchemy import Column, Integer, String, Float
 
 class Product(Base):
     __tablename__ = "products"
-
+    reorder_level = Column(Integer, default=5, nullable=False) 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sku: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)

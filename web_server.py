@@ -23,6 +23,9 @@ from schemas import (
     StockMovementCreate,
 )
 
+from fastapi import APIRouter
+
+router = APIRouter()
 
 app = FastAPI(
     title="Inventory Engine API",
@@ -323,3 +326,32 @@ def get_reorder_items(db: Session = Depends(get_db)):
     # اقلامی که موجودی‌شان کمتر یا مساوی حداقل موجودی (min_stock) است
     reorder_list = db.query(Product).filter(Product.quantity <= Product.min_stock).all()
     return reorder_list
+import csv
+import io
+from fastapi import Response
+
+def generate_csv_response(headers: list, rows: list, filename: str = "report.csv"):
+    output = io.StringIO()
+    # افزودن BOM برای خوانایی صحیح حروف فارسی در اکسل
+    output.write('\ufeff')
+    
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow(row)
+        
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+@router.get("/reports/inventory")
+def inventory_report(format: str = "json", db: Session = Depends(get_db)):
+    data = get_inventory_valuation(db)
+    
+    if format == "csv":
+        headers = ["شناسه کالا", "SKU", "نام کالا", "موجودی کل", "ارزش کل (تومان)"]
+        rows = [[item.id, item.sku, item.name, item.total_on_hand, item.total_value] for item in data]
+        return generate_csv_response(headers, rows, "inventory_report.csv")
+        
+    return {"items": data}
