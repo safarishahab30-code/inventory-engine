@@ -1,51 +1,59 @@
+from sqlalchemy.orm import Session
 from sqlalchemy import func
 from inventory_core.models.product import Product
-from inventory_core.utils import farsi
-import csv
+from inventory_core.models.stock_batch import StockBatch
+from fastapi import APIRouter
+from inventory_core.database import get_db
 
-def export_low_stock(session, filename="low_stock.csv"):
-    items = get_low_stock_report(session)
-    with open(filename, mode="w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.writer(f)
-        writer.writerow(["شناسه", "نام کالا", "کد کالا (SKU)", "موجودی فعلی", "حداقل مجاز"])
-        for item in items:
-            writer.writerow([item.id, item.name, item.sku, item.quantity, item.min_stock])
+router = APIRouter()
 
-def count_low_stock(session):
-    return session.query(Product).filter(
-        func.coalesce(Product.quantity, 0) < func.coalesce(Product.min_stock, 1)
-    ).count()
+def get_inventory_valuation(db: Session):
+    # محاسبه موجودی و ارزش مالی بر اساس StockBatch
+    results = db.query(
+        Product.id,
+        Product.sku,
+        Product.name,
+        func.coalesce(func.sum(StockBatch.quantity), 0).label("total_on_hand"),
+        func.coalesce(func.sum(StockBatch.quantity * StockBatch.purchase_price), 0.0).label("total_value")
+    ).outerjoin(StockBatch, Product.id == StockBatch.product_id)\
+     .group_by(Product.id, Product.sku, Product.name).all()
+     
+    return results
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+# ایمپورت‌های دیتابیس و مدل‌ها (متناسب با پروژه خودت)
 
-def get_low_stock_report(session):
-    return session.query(Product).filter(
-        func.coalesce(Product.quantity, 0) < func.coalesce(Product.min_stock, 1)
-    ).all()
-
-def check_low_stock_alerts(session):
-    low_stock_items = get_low_stock_report(session)
-    if not low_stock_items:
-        print(farsi("تمام موجودی‌ها در وضعیت نرمال هستند."))
-        return
-
-    for item in low_stock_items:
-        current_qty = item.quantity if item.quantity is not None else 0
-        min_limit = item.min_stock if item.min_stock is not None else 1
-        print(farsi(f"کالا: {item.name} | موجودی: {current_qty} | حداقل مجاز: {min_limit}"))
-    print(farsi("------------------------------------"))
-
-# در inventory_core/reports.py
-def show_logs(session, page=1, page_size=10):
-    from inventory_core.models.transaction import TransactionLog
+@router.get("/reports/low-stock")
+def get_low_stock_report(db: Session = Depends(get_db)):
+    # محاسبه موجودی کل هر محصول و مقایسه با reorder_level
+    results = (
+        db.query(
+            Product.id,
+            Product.sku,
+            Product.name,
+            Product.reorder_level,
+            func.coalesce(func.sum(StockBatch.quantity), 0).label("total_quantity")
+        )
+        .outerjoin(StockBatch, Product.id == StockBatch.product_id)
+        .group_by(Product.id)
+        .having(func.coalesce(func.sum(StockBatch.quantity), 0) <= Product.reorder_level)
+        .all()
+    )
     
-    # محاسبه آفست برای صفحه‌بندی
-    offset = (page - 1) * page_size
-    logs = session.query(TransactionLog).order_by(TransactionLog.created_at.desc()).offset(offset).limit(page_size).all()
-    
-    if not logs:
-        print(farsi("تراکنشی یافت نشد."))
-        return
+    # خروجی به صورت لیست JSON یا آماده‌سازی برای CSV
+    return [
+        {
+            "product_id": r.id,
+            "sku": r.sku,
+            "name": r.name,
+            "reorder_level": r.reorder_level,
+            "total_quantity": r.total_quantity
+        }
+        for r in results
+    ]
+from sqlalchemy.orm import Session
 
-    print(f"\n--- {farsi('تاریخچه تراکنش‌ها')} (Page {page}) ---")
-    for log in logs:
-        # نمایش دقیق جزئیات
-        print(f"ID: {log.id} | {log.created_at.strftime('%Y-%m-%d %H:%M')} | {log.movement_type} | Qty: {log.change_qty} | Reason: {log.reason}")
+def check_low_stock_alerts(db: Session):
+    # منطق بررسی هشدار موجودی کم و بازگرداندن نتایج
+    pass

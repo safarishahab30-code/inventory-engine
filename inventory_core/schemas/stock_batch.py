@@ -20,3 +20,19 @@ class StockBatchResponse(StockBatchBase):
     received_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+from enum import Enum
+
+class MovementType(str, Enum):
+    IN = "IN"
+    OUT = "OUT"
+    ADJUSTMENT = "ADJUSTMENT"
+from pydantic import BaseModel
+from typing import Optional
+from inventory_core.schemas.stock_batch import MovementType # یا هر مکان مناسب
+
+class StockMovementCreate(BaseModel):
+    product_id: int
+    change_qty: int
+    movement_type: MovementType
+    reason: Optional[str] = None
+

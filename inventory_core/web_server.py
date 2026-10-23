@@ -1,3 +1,11 @@
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+
+from inventory_core.database import get_db
+from inventory_core.models.user import User
+from inventory_core.auth import authenticate_user, create_access_token, get_current_user
+
 from typing import List
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -5,17 +13,17 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from auth import (
+from inventory_core.auth import (
     authenticate_user,
     create_access_token,
     get_current_user,
 )
 
+
 from inventory_core.database import get_db
 from inventory_core.models.product import Product
 from inventory_core.models.stock_movement import StockMovement
-
-from schemas import (
+from inventory_core.schemas import (
     MovementType,
     ProductCreate,
     ProductResponse,
@@ -209,34 +217,6 @@ def delete_product(
     }
 
 
-@app.post("/token")
-def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db),
-):
-    user = authenticate_user(
-        db=db,
-        username=form_data.username,
-        password=form_data.password,
-    )
-
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="نام کاربری یا رمز عبور اشتباه است.",
-            headers={
-                "WWW-Authenticate": "Bearer",
-            },
-        )
-
-    access_token = create_secret_8b1a9ae1(data={"sub": user.username})
-    return {
-       "access_token": access_token,
-       "token_type": "bearer",
-   }
-
-
-
 @app.post(
     "/transactions",
     status_code=status.HTTP_201_CREATED,
@@ -355,3 +335,97 @@ def inventory_report(format: str = "json", db: Session = Depends(get_db)):
         return generate_csv_response(headers, rows, "inventory_report.csv")
         
     return {"items": data}
+@app.post("/token", operation_id="obtain_user_access_token")
+def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    user = authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="نام کاربری یا رمز عبور اشتباه است",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = create_access_token(data={"sub": user.username, "role": user.role})
+    return {"access_token": access_token, "token_type": "bearer"}
+import logging
+
+# تنظیمات پایه لاگ‌گیری
+logging.basicConfig(
+    filename="inventory.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    encoding="utf-8",
+)
+logger = logging.getLogger("inventory_api")
+import time
+from fastapi import Request
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+  start_time = time.time()
+  response = await call_next(request)
+  process_time = time.time() - start_time
+  logger.info(
+      f"Path: {request.url.path} | Method: {request.method} | Status:"
+      f" {response.status_code} | Duration: {process_time:.4f}s"
+  )
+  return response
+import csv
+from fastapi.responses import StreamingResponse
+import io
+
+
+@app.get("/reports/inventory/csv")
+def export_inventory_csv(db: Session = Depends(get_db)):
+  output = io.StringIO()
+  writer = csv.writer(output)
+  writer.writerow(["ID", "Product Name", "Quantity", "Price"])
+
+  # فرض بر این است که مدل Product را داری
+  products = db.query(Product).all()
+  for p in products:
+    writer.writerow([p.id, p.name, p.quantity, p.price])
+
+  output.seek(0)
+  return StreamingResponse(
+      iter([output.getvalue()]),
+      media_type="text/csv",
+      headers={
+          "Content-Disposition": "attachment; filename=inventory_report.csv"
+      },
+  )
+from fastapi.security import OAuth2PasswordRequestForm
+from inventory_core.auth import (
+    authenticate_user,
+    create_access_token,
+    get_current_user,
+    get_password_hash,
+)
+from inventory_core.models.user import User
+
+@app.post("/register")
+def register_user(username: str, password: str, db: Session = Depends(get_db)):
+    existing = get_user_by_username(db, username)
+    if existing:
+        raise HTTPException(status_code=400, detail="این نام کاربری قبلاً ثبت شده است")
+    
+    hashed_pwd = get_password_hash(password)
+    new_user = User(username=username, hashed_password=hashed_pwd)
+    db.add(new_user)
+    db.commit()
+    return {"message": "کاربر با موفقیت ثبت‌نام شد"}
+
+@app.post("/token")
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="نام کاربری یا رمز عبور اشتباه است",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
