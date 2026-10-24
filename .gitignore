@@ -26,3 +26,6 @@ inventory.log
 .idea/
 inventory.db
 inventory.log
+
+inventory.db
+inventory.log
