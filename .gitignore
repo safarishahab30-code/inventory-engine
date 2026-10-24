@@ -24,3 +24,5 @@ inventory.log
 # IDEs
 .vscode/
 .idea/
+inventory.db
+inventory.log
