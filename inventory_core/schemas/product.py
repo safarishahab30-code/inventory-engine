@@ -16,11 +16,14 @@ class ProductBase(BaseModel):
 
 # مدل برای ایجاد محصول جدید (ارث‌بری از بیس)
 class ProductCreate(BaseModel):
-    name: str
-    price: float
-    category: str
     sku: str
-    selling_price: float # این خط را اضافه کن
+    name: str
+    description: Optional[str] = None
+    category_id: int  # باید جایگزین category شود
+    price: float
+    selling_price: float
+    unit: str
+    min_stock: int
 
 # مدل برای آپدیت (فیلدها اختیاری)
 class ProductUpdate(BaseModel):

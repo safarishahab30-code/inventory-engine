@@ -1,27 +1,25 @@
 import typer
-from sqlalchemy.orm import Session
-from inventory_core.database import SessionLocal
-from inventory_core.schemas.product import ProductCreate
-from inventory_core.utils import farsi
-from inventory_core.schemas.product import ProductCreate
-from inventory_core.schemas.product import ProductCreate
-from InquirerPy import inquirer
-from inventory_core.models.product import Product
-from InquirerPy.base.control import Choice
-from rich.console import Console
-from typing import Optional, List
-from rich.table import Table
-from rich import box
 from typing import Optional
 from pathlib import Path
-from inventory_core.crud.product import product_crud
-from inventory_core.services.exporter import export_to_csv, export_to_excel
+
+from sqlalchemy.orm import Session
+from InquirerPy import inquirer
+from InquirerPy.base.control import Choice
+from rich.console import Console
+from rich.table import Table
+from rich import box
+
 from inventory_core.database import SessionLocal
+from inventory_core.schemas.product import ProductCreate
 from inventory_core.utils import farsi
+from inventory_core.models.product import Product
+from inventory_core.models.activity_log import log_activity
+from inventory_core.crud.product import product_crud, advanced_search_products
+from inventory_core.services.exporter import export_to_csv, export_to_excel
+
 console = Console()
-
-
 app = typer.Typer()
+
 
 @app.command(name="list")
 def list_products():
@@ -46,12 +44,10 @@ def list_products():
         table.add_column(farsi("موجودی"), justify="center")
 
         for p in products:
-            # تغییر در فایل app_cli.py
             if (p.quantity or 0) == 0:
                 qty_str = f"[bold red]{p.quantity or 0} ({farsi('ناموجود')})[/bold red]"
             elif (p.quantity or 0) < 5:
                 qty_str = f"[bold yellow]{p.quantity or 0}[/bold yellow]"
-
             else:
                 qty_str = f"[bold green]{p.quantity}[/bold green]"
 
@@ -59,7 +55,6 @@ def list_products():
                 str(p.id),
                 farsi(p.name),
                 farsi(p.category or "-"),
-                # تغییر در فایل app_cli.py
                 f"{(p.price or 0):,.0f}",
                 qty_str
             )
@@ -68,15 +63,13 @@ def list_products():
     finally:
         db.close()
 
-# تغییر پیشنهادی برای add-product تعاملی
+
 @app.command(name="add-product")
 def add_product():
     db = SessionLocal()
     try:
-        # دریافت ورودی‌ها
         name = inquirer.text(message=farsi("نام کالا را وارد کنید:")).execute().strip()
-        
-        # دریافت و تبدیل قیمت‌ها با مدیریت خطا
+
         try:
             price = float(inquirer.text(message=farsi("قیمت خرید کالا را وارد کنید:")).execute().strip())
             selling_price = float(inquirer.text(message=farsi("قیمت فروش کالا را وارد کنید:")).execute().strip())
@@ -87,17 +80,16 @@ def add_product():
         category = inquirer.text(message=farsi("دسته‌بندی کالا را وارد کنید:")).execute().strip()
         sku = inquirer.text(message=farsi("شناسه محصول (SKU) را وارد کنید:")).execute().strip()
 
-        # ساخت آبجکت داده منطبق با Schema جدید
         product_data = ProductCreate(
-            name=name, 
-            price=price, 
-            selling_price=selling_price, 
-            category=category, 
+            name=name,
+            price=price,
+            selling_price=selling_price,
+            category=category,
             sku=sku
         )
-        
-        # ثبت در دیتابیس
-        product_crud.create(db, obj_in=product_data)
+
+        new_product = product_crud.create(db, obj_in=product_data)
+        log_activity(db, f"ایجاد محصول: {new_product.name} (SKU: {new_product.sku})")
         console.print(farsi("[green]✅ محصول با موفقیت ثبت شد.[/green]"))
 
     except Exception as e:
@@ -105,6 +97,7 @@ def add_product():
 
     finally:
         db.close()
+
 
 @app.command(name="delete")
 def delete(product_id: int):
@@ -114,10 +107,13 @@ def delete(product_id: int):
         if not success:
             print(farsi(f"❌ محصولی با شناسه {product_id} یافت نشد."))
             return
-        
+
+        log_activity(session, f"حذف محصول با شناسه {product_id}")
         print(farsi(f"🗑️ محصول با شناسه {product_id} با موفقیت حذف شد."))
     finally:
         session.close()
+
+
 def search_products_cli(
     db,
     console,
@@ -125,7 +121,6 @@ def search_products_cli(
     name: Optional[str] = None,
     category: Optional[str] = None
 ):
-    # ۱. حالت تعاملی (Interactive Mode)
     if interactive:
         products = db.query(Product).all()
         if not products:
@@ -135,7 +130,7 @@ def search_products_cli(
         choices = []
         for p in products:
             cat = p.category or '-'
-            line =farsi(f"{p.id:>3} | {p.name:<20} | {cat:<12} | {p.price:>10,.0f} | {p.quantity:>5}")
+            line = farsi(f"{p.id:>3} | {p.name:<20} | {cat:<12} | {p.price:>10,.0f} | {p.quantity:>5}")
             choices.append(Choice(value=p.id, name=line))
 
         selected_id = inquirer.fuzzy(
@@ -150,7 +145,6 @@ def search_products_cli(
                 display_product_table(console, product)
         return
 
-    # ۲. حالت غیر تعاملی (Filter Mode)
     query = db.query(Product)
     if name:
         query = query.filter(Product.name.contains(name))
@@ -163,78 +157,10 @@ def search_products_cli(
     else:
         for p in products:
             display_product_table(console, p)
-from inventory_core.crud.product import product_crud
 
-
-def edit_product_ui(GAPGPTMASKTOKENjj0g7pxigyX1X):
-    sku = questionary.text(farsi("کد کالا (SKU) را وارد کنید:")).ask()
-    if not sku:
-        return
-
-    product = product_crud.get_by_sku(GAPGPTMASKTOKENjj0g7pxigyX2X, sku.strip())
-    if not product:
-        console.print(farsi("[bold red]❌ خطا: کالایی با این کد یافت نشد.[/bold red]"))
-        return
-
-    console.print(farsi(f"[bold cyan]در حال ویرایش: {product.name} (شناسه: {product.id})[/bold cyan]"))
-
-    new_name = questionary.text(farsi(f"نام جدید (خالی = {product.name}):")).ask()
-    new_price_str = questionary.text(farsi(f"قیمت جدید (خالی = {product.price}):")).ask()
-    new_min_stock_str = questionary.text(farsi(f"حداقل موجودی جدید (خالی = {product.min_stock}):")).ask()
-
-    update_data = {}
-    if new_name and new_name.strip():
-        update_data["name"] = new_name.strip()
-    if new_price_str and new_price_str.strip():
-        try:
-            update_data["price"] = float(new_price_str.strip())
-        except ValueError:
-            console.print(farsi("[bold red]❌ قیمت نامعتبر است.[/bold red]"))
-            return
-    if new_min_stock_str and new_min_stock_str.strip():
-        try:
-            update_data["min_stock"] = int(new_min_stock_str.strip())
-        except ValueError:
-            console.print(farsi("[bold red]❌ حداقل موجودی باید عدد صحیح باشد.[/bold red]"))
-            return
-
-    if update_data:
-        updated = product_crud.update(db, db_obj=product, obj_in=update_data)
-        if updated:
-            console.print(farsi("[bold green]✔ اطلاعات کالا با موفقیت ویرایش شد.[/bold green]"))
-        else:
-            console.print(farsi("[bold red]❌ خطا در به‌روزرسانی کالا.[/bold red]"))
-    else:
-        console.print(farsi("[yellow]هیچ تغییری اعمال نشد.[/yellow]"))
-
-
-def delete_product_ui(GAPGPTMASKTOKENjj0g7pxigyX4X):
-    sku = questionary.text(farsi("کد کالا (SKU) جهت حذف:")).ask()
-    if not sku:
-        return
-
-    product = product_crud.get_by_sku(GAPGPTMASKTOKENjj0g7pxigyX5X, sku.strip())
-    if not product:
-        console.print(farsi("[bold red]❌ خطا: کالایی با این کد یافت نشد.[/bold red]"))
-        return
-
-    confirm = questionary.confirm(
-        farsi(f"آیا از حذف کامل «{product.name}» (SKU: {product.sku}) مطمئن هستید؟")
-    ).ask()
-
-    if confirm:
-        deleted = product_crud.remove(GAPGPTMASKTOKENjj0g7pxigyX6X, id=product.id)
-        if deleted:
-            console.print(farsi("[bold green]✔ کالا با موفقیت از سیستم حذف شد.[/bold green]"))
-        else:
-            console.print(farsi("[bold red]❌ خطا در حذف کالا از پایگاه داده.[/bold red]"))
-    else:
-        console.print(farsi("[yellow]عملیات حذف لغو شد.[/yellow]"))
 
 def display_product_table(console, product):
-    """
-    تابع کمکی برای نمایش جدول جزئیات کالا جهت جلوگیری از تکرار کد
-    """
+    """تابع کمکی برای نمایش جدول جزئیات کالا جهت جلوگیری از تکرار کد"""
     table = Table(
         title=farsi("📦 جزئیات کالا"),
         box=box.ROUNDED,
@@ -242,14 +168,16 @@ def display_product_table(console, product):
     )
     table.add_column(farsi("ویژگی"), style="cyan")
     table.add_column(farsi("مقدار"), style="white")
-    
+
     table.add_row(farsi("شناسه"), str(product.id))
     table.add_row(farsi("نام کالا"), farsi(product.name))
     table.add_row(farsi("دسته‌بندی"), farsi(product.category or "-"))
     table.add_row(farsi("قیمت"), f"{product.price:,} {farsi('تومان')}")
     table.add_row(farsi("موجودی"), str(product.quantity))
-    
+
     console.print(table)
+
+
 @app.command(name="search")
 def search(
     name: Optional[str] = typer.Option(None, "--name", "-n", help="نام کالا"),
@@ -299,16 +227,17 @@ def search(
         console.print(table)
     finally:
         session.close()
+
+
 @app.command(name="low-stock")
 def low_stock_command(
     threshold: int = typer.Option(5, "--threshold", "-t", help="آستانه موجودی")
 ):
     session = SessionLocal()
     try:
-        # استفاده از متد کلاس CRUD به جای تابع غیرمرتبط
         summary = product_crud.get_inventory_summary(session, low_stock_threshold=threshold)
         products = summary["low_stock_products"]
-        
+
         if not products:
             console.print(farsi(f"[yellow]هیچ کالایی با موجودی کمتر از {threshold} یافت نشد.[/yellow]"))
             return
@@ -317,94 +246,24 @@ def low_stock_command(
         table.add_column("ID", style="dim")
         table.add_column(farsi("نام کالا"))
         table.add_column(farsi("موجودی"), style="red")
-        
+
         for p in products:
             table.add_row(str(p.id), p.name, str(p.quantity))
-        
+
         console.print(table)
     finally:
         session.close()
 
-def handle_edit_product():
-    """ویرایش فیلدهای کالا بر اساس SKU یا شناسه"""
-    sku = input(farsi("کد کالا (SKU) را وارد کنید: ")).strip()
-    product = product_crud.get_by_sku(sku)
-    
-    if not product:
-        print(farsi("خطا: کالایی با این کد یافت نشد."))
-        return
-
-    print(farsi(f"در حال ویرایش: {product.name}"))
-    
-    new_name = input(farsi("نام جدید (خالی برای عدم تغییر): ")).strip()
-    new_price = input(farsi("قیمت جدید (خالی برای عدم تغییر): ")).strip()
-    new_min_stock = input(farsi("حداقل موجودی جدید (خالی برای عدم تغییر): ")).strip()
-
-    update_data = {}
-    if new_name:
-        update_data["name"] = new_name
-    if new_price:
-        try:
-            update_data["price"] = float(new_price)
-        except ValueError:
-            print(farsi("خطا: قیمت وارد شده معتبر نیست."))
-            return
-    if new_min_stock:
-        try:
-            update_data["min_stock"] = int(new_min_stock)
-        except ValueError:
-            print(farsi("خطا: حداقل موجودی باید عدد صحیح باشد."))
-            return
-
-    if update_data:
-        success = product_crud.update_product(product.id, **update_data)
-        if success:
-            print(farsi("اطلاعات کالا با موفقیت ویرایش شد."))
-        else:
-            print(farsi("خطا در ثبت تغییرات."))
-    else:
-        print(farsi("هیچ تغییری اعمال نشد."))
-
-
-def handle_delete_product():
-    """حذف کالا با تایید نهایی کاربر"""
-    sku = input(farsi("کد کالا (SKU) جهت حذف: ")).strip()
-    product = product_crud.get_by_sku(sku)
-
-    if not product:
-        print(farsi("خطا: کالایی با این کد یافت نشد."))
-        return
-
-    confirm = input(farsi(f"آیا از حذف '{product.name}' مطمئن هستید؟ (y/n): ")).strip().lower()
-    if confirm == 'y':
-        success = product_crud.delete_product(product.id)
-        if success:
-            print(farsi("کالا با موفقیت حذف شد."))
-        else:
-            print(farsi("خطا در حذف کالا از پایگاه داده."))
-    else:
-        print(farsi("عملیات حذف لغو شد."))
-
 
 @app.command(name="report", help="گزارش آماری انبار با امکان خروجی فایل اکسل یا CSV")
 def inventory_report(
-    export: str = typer.Option(
-        None, 
-        "--export", "-e", 
-        help="فرمت خروجی گزارش: csv یا excel"
-    ),
-    threshold: int = typer.Option(
-        5, 
-        "--threshold", "-t", 
-        help="آستانه هشدار کسری موجودی"
-    )
+    export: str = typer.Option(None, "--export", "-e", help="فرمت خروجی گزارش: csv یا excel"),
+    threshold: int = typer.Option(5, "--threshold", "-t", help="آستانه هشدار کسری موجودی")
 ):
     db = SessionLocal()
     try:
-        # ۱. دریافت خلاصه وضعیت انبار از CRUD
         summary = product_crud.get_inventory_summary(db, low_stock_threshold=threshold)
-        
-        # نمایش جدول آماری در ترمینال
+
         summary_table = Table(title=farsi("📊 خلاصه وضعیت انبار"), box=box.ROUNDED)
         summary_table.add_column(farsi("شاخص"), style="cyan")
         summary_table.add_column(farsi("مقدار"), style="green")
@@ -413,10 +272,9 @@ def inventory_report(
         summary_table.add_row(farsi("مجموع موجودی فیزیکی"), str(summary.get("total_stock", 0)))
         summary_table.add_row(farsi("ارزش ریالی کل انبار"), f"{summary.get('total_value', 0):,} " + farsi("تومان"))
         summary_table.add_row(farsi("تعداد کالاهای رو به اتمام"), str(summary.get("low_stock_count", 0)))
-        
+
         console.print(summary_table)
 
-        # ۲. نمایش کالاهای با موجودی بحرانی در صورت وجود
         low_stock_products = summary.get("low_stock_products", [])
         if low_stock_products:
             console.print(farsi("\n[bold red]⚠️ کالاهای با موجودی بحرانی:[/bold red]"))
@@ -424,16 +282,15 @@ def inventory_report(
             low_table.add_column(farsi("شناسه"), style="dim")
             low_table.add_column(farsi("نام کالا"))
             low_table.add_column(farsi("موجودی"), style="red")
-            
+
             for item in low_stock_products:
                 low_table.add_row(str(item.id), farsi(item.name), str(item.quantity))
             console.print(low_table)
 
-        # ۳. صدور فایل در صورت ارسال فلگ export
         if export:
             export_format = export.lower().strip()
             products = product_crud.get_multi(db)
-            
+
             export_data = [
                 {
                     "شناسه": p.id,
@@ -457,12 +314,12 @@ def inventory_report(
                 file_path = output_dir / "inventory_report.xlsx"
                 export_to_excel(export_data, file_path)
                 console.print(farsi(f"[green]✔ گزارش اکسل با موفقیت ذخیره شد:[/green] {file_path}"))
-
             else:
                 console.print(farsi("[red]❌ فرمت نامعتبر است. فرمت‌های مجاز: csv یا excel[/red]"))
 
     finally:
         db.close()
+
 
 @app.command(name="add-stock")
 def add_stock(product_id: int, amount: int):
@@ -470,22 +327,26 @@ def add_stock(product_id: int, amount: int):
     try:
         product = product_crud.increase_stock(db, product_id, amount)
         if product:
+            log_activity(db, f"افزایش موجودی محصول {product.name} به میزان {amount} واحد")
             console.print(farsi(f"[green]✅ موجودی {product.name} با موفقیت {amount} واحد افزایش یافت.[/green]"))
         else:
             console.print(farsi("[red]❌ کالا یافت نشد.[/red]"))
     finally:
         db.close()
 
+
 @app.command(name="sell")
 def sell(product_id: int, amount: int):
     db = SessionLocal()
     try:
         if product_crud.record_sale(db, product_id, amount):
+            log_activity(db, f"ثبت فروش محصول با شناسه {product_id} به میزان {amount} واحد")
             console.print(farsi("[green]✅ فروش ثبت شد و از موجودی کسر گردید.[/green]"))
         else:
             console.print(farsi("[red]❌ فروش ناموفق: موجودی کافی نیست یا کالا یافت نشد.[/red]"))
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     app()

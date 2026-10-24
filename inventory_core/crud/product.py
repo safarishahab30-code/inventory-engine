@@ -1,5 +1,6 @@
+from typing import Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import func
 from inventory_core.models.product import Product
 from inventory_core.schemas.product import ProductCreate, ProductUpdate
 from inventory_core.crud.base import CRUDBase
@@ -41,14 +42,16 @@ def delete_product(db: Session, product_id: int):
     return False
 
 def advanced_search_products(
-    db: Session, 
-    name: str = None, 
-    category: str = None, 
-    min_price: float = None, 
-    max_price: float = None
+    db: Session,
+    name: Optional[str] = None,
+    category: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    in_stock: Optional[bool] = None,
 ):
     """منطق کوئری جستجوی پیشرفته در دیتابیس"""
     query = db.query(Product)
+
     if name:
         query = query.filter(Product.name.ilike(f"%{name}%"))
     if category:
@@ -57,13 +60,18 @@ def advanced_search_products(
         query = query.filter(Product.price >= min_price)
     if max_price is not None:
         query = query.filter(Product.price <= max_price)
+    if in_stock is True:
+        query = query.filter(Product.quantity > 0)
+    elif in_stock is False:
+        query = query.filter(Product.quantity == 0)
+
     return query.all()
 
 def get_inventory_summary(db: Session, low_stock_threshold: int = 5):
     stats = db.query(
         func.count(Product.id).label("total_products"),
         func.coalesce(func.sum(Product.quantity), 0).label("total_stock"),
-        func.coalesce(func.sum(Product.quantity * Product.price), 0).label("total_value")
+        func.coalesce(func.sum(Product.quantity * Product.price), 0).label("total_value"),
     ).first()
 
     low_stock_products = db.query(Product).filter(
@@ -75,17 +83,18 @@ def get_inventory_summary(db: Session, low_stock_threshold: int = 5):
         "total_stock": stats.total_stock or 0,
         "total_value": stats.total_value or 0,
         "low_stock_count": len(low_stock_products),
-        "low_stock_products": low_stock_products
+        "low_stock_products": low_stock_products,
     }
 
 # --- کلاس CRUD ---
 
-class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):                        
+class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
     def increase_stock(self, db: Session, product_id: int, amount: int):
         p = get_product(db, product_id)
         if p:
             p.quantity = (p.quantity or 0) + amount
             db.commit()
+            db.refresh(p)
             return p
         return None
 
@@ -94,6 +103,7 @@ class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
         if p and (p.quantity or 0) >= amount:
             p.quantity -= amount
             db.commit()
+            db.refresh(p)
             return True
         return False
 

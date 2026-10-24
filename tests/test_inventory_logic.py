@@ -18,7 +18,6 @@ def test_add_stock_increases_product_quantity():
     product = Product(
         sku="BOOK-001",
         name="Test Book",
-        category="General",
         price=10000.0,
         quantity=0,
     )
@@ -47,9 +46,10 @@ def test_record_stock_movement_in_and_out(db_session):
         sku="TEST-SKU-100",
         price=50000,
         quantity=0,
-        category="کتاب",
     )
+
     service = InventoryService(db_session)
+
 
     # تست ورود کالا
     batch = service.add_stock(
@@ -67,7 +67,6 @@ def test_record_stock_movement_in_and_out(db_session):
     db_session.refresh(product)
     assert product.quantity == 6
 
-
 def test_record_stock_movement_negative_stock_prevented(db_session):
     product = Product.create(
         db_session=db_session,
@@ -75,28 +74,6 @@ def test_record_stock_movement_negative_stock_prevented(db_session):
         sku="TEST-SKU-200",
         price=30000,
         quantity=0,
-        category="کتاب",
-    )
-    service = InventoryService(db_session)
-    service.add_stock(
-        product_id=product.id,
-        quantity=5,
-        purchase_price=25000,
-        batch_name="BATCH-002",
-    )
-
-    # تلاش برای خروج بیش از موجودی
-    with pytest.raises(ValueError):
-        service.issue_stock(product_id=product.id, quantity=10)
-
-def test_record_stock_movement_negative_stock_prevented(db_session):
-    product = Product.create(
-        db_session=db_session,
-        name="کتاب تستی دوم",
-        sku="TEST-SKU-200",
-        price=30000,
-        quantity=0,
-        category="کتاب",
     )
     service = InventoryService(db_session)
     service.add_stock(
