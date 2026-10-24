@@ -29,3 +29,21 @@ def init_db():
     from inventory_core.models.product import Product
     from inventory_core.models.stock_batch import StockBatch
     Base.metadata.create_all(bind=engine)
+import sqlite3
+
+conn = sqlite3.connect("inventory.db")
+cursor = conn.cursor()
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER,
+        change_amount INTEGER,
+        type TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (product_id) REFERENCES products (id)
+    )
+"""
+)
+conn.commit()
+conn.conn.close() if hasattr(conn, "conn") else conn.close()
