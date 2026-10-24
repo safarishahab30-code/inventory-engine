@@ -8,3 +8,17 @@
 2026-09-30 18:49:08,952 - INFO - Action: ISSUE_STOCK | Details: PID:5, Qty:4
 2026-09-30 19:17:47,769 - INFO - Action: ISSUE_STOCK | Details: PID:5, Qty:5
 2026-09-30 19:18:48,328 - INFO - Action: RECEIVE_ORDER | Details: PID:1, Qty:50
+2026-10-24 20:59:16,445 - INFO - Path: /docs | Method: GET | Status: 200 | Duration: 0.0002s
+2026-10-24 20:59:17,744 - INFO - Path: /openapi.json | Method: GET | Status: 200 | Duration: 0.0219s
+2026-10-24 21:01:54,559 - INFO - Path: /register | Method: POST | Status: 422 | Duration: 0.0019s
+2026-10-24 21:01:57,215 - INFO - Path: /register | Method: POST | Status: 422 | Duration: 0.0006s
+2026-10-24 21:03:16,107 - INFO - Path: /register | Method: POST | Status: 422 | Duration: 0.0015s
+2026-10-24 21:03:18,698 - INFO - Path: /register | Method: POST | Status: 422 | Duration: 0.0006s
+2026-10-24 21:04:27,212 - INFO - Path: /docs | Method: GET | Status: 200 | Duration: 0.0004s
+2026-10-24 21:04:27,352 - INFO - Path: /openapi.json | Method: GET | Status: 200 | Duration: 0.0174s
+2026-10-24 21:05:26,108 - INFO - Path: /docs | Method: GET | Status: 200 | Duration: 0.0002s
+2026-10-24 21:05:26,185 - INFO - Path: /openapi.json | Method: GET | Status: 200 | Duration: 0.0213s
+2026-10-24 21:06:23,899 - INFO - Path: /docs | Method: GET | Status: 200 | Duration: 0.0004s
+2026-10-24 21:06:23,990 - INFO - Path: /openapi.json | Method: GET | Status: 200 | Duration: 0.0244s
+2026-10-24 21:06:26,427 - INFO - Path: /reports/inventory/csv | Method: GET | Status: 200 | Duration: 0.0094s
+2026-10-24 21:22:03,256 - INFO - Path: /reports/inventory/csv | Method: GET | Status: 200 | Duration: 0.0088s

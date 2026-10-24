@@ -57,3 +57,19 @@ from sqlalchemy.orm import Session
 def check_low_stock_alerts(db: Session):
     # منطق بررسی هشدار موجودی کم و بازگرداندن نتایج
     pass
+def count_low_stock(db: Session, threshold: int = 5) -> int:
+  """شمارش تعداد کالاهای با موجودی کم یا کمتر از آستانه"""
+  results = get_low_stock_report(db)
+  return len(results)
+import csv
+import io
+
+def export_low_stock(db: Session) -> str:
+  """خروجی گزارش موجودی کم به صورت فرمت CSV"""
+  items = get_low_stock_report(db)
+  output = io.StringIO()
+  writer = csv.DictWriter(output, fieldnames=["product_id", "sku", "name", "reorder_level", "total_quantity"])
+  writer.writeheader()
+  for item in items:
+    writer.writerow(item)
+  return output.getvalue()
